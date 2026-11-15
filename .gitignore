@@ -5,9 +5,10 @@ __pycache__/
 .venv/
 venv/
 
-# Build artifacts
-build/
-dist/
+# Build artifacts (flet pack / PyInstaller)
+/build/
+/dist/
+*.spec
 
 # Test & tooling caches
 .pytest_cache/
@@ -16,15 +17,20 @@ htmlcov/
 .mypy_cache/
 .ruff_cache/
 
-# Flet build output
-storage/
+# Flet runtime output (root only: src/fitbatch/storage is source code!)
+/storage/
 
-# Never commit credentials or downloaded training data
+# Never commit credentials, app data or downloaded training data
 .env
 *.token
 garth_tokens/
+.garminconnect/
+/appdata/
 *.fit
 *.FIT
+*.tcx
+*.gpx
+*.kml
 
 # OS / editors
 .DS_Store

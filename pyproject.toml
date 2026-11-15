@@ -7,7 +7,8 @@ name = "fitbatch"
 version = "0.0.1"
 description = "Bulk download & upload of your training data. For Garmin Connect."
 readme = "README.md"
-requires-python = ">=3.10"
+# python-garminconnect (planned email + password adapter) requires Python 3.12+.
+requires-python = ">=3.12"
 license = "GPL-3.0-or-later"
 license-files = ["LICENSE"]
 authors = [{ name = "Dawid Medyński" }]
@@ -15,26 +16,30 @@ keywords = ["garmin", "garmin-connect", "fit", "training", "export", "import", "
 classifiers = [
     "Development Status :: 1 - Planning",
     "Environment :: Console",
-    "Environment :: X11 Applications",
     "Environment :: Win32 (MS Windows)",
     "Intended Audience :: End Users/Desktop",
-    "Operating System :: Microsoft :: Windows",
-    "Operating System :: POSIX :: Linux",
-    "Operating System :: MacOS",
+    "Operating System :: Microsoft :: Windows :: Windows 10",
+    "Operating System :: Microsoft :: Windows :: Windows 11",
     "Programming Language :: Python :: 3",
     "Programming Language :: Python :: 3 :: Only",
+    "Programming Language :: Python :: 3.12",
+    "Programming Language :: Python :: 3.13",
+    "Programming Language :: Python :: 3.14",
     "Topic :: Utilities",
 ]
 dependencies = [
     "flet[desktop]>=1.1,<2",
+    "platformdirs>=4.3",
 ]
 
 [project.optional-dependencies]
 dev = [
     "pytest>=8",
+    "ruff>=0.8",
     "build>=1.2",
     "twine>=6",
     "flet[cli]>=1.1,<2",
+    "pyinstaller>=6.16",
 ]
 
 [project.urls]
@@ -46,10 +51,33 @@ Issues = "https://github.com/dmconsultingit/fitbatch/issues"
 fitbatch = "fitbatch.cli:main"
 
 [project.gui-scripts]
-fitbatch-gui = "fitbatch.gui:main"
+fitbatch-gui = "fitbatch.ui.app:main"
 
 [tool.hatch.build.targets.wheel]
 packages = ["src/fitbatch"]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]
+
+[tool.ruff]
+line-length = 100
+target-version = "py312"
+src = ["src", "tests"]
+
+[tool.ruff.lint]
+select = [
+    "E", "W",   # pycodestyle (PEP 8)
+    "F",        # pyflakes
+    "I",        # import sorting
+    "UP",       # modern Python syntax
+    "B",        # likely bugs
+    "SIM",      # simplifications
+    "S",        # security (bandit)
+    "ANN",      # type hints
+]
+ignore = [
+    "ANN401",   # allow typing.Any where unavoidable
+]
+
+[tool.ruff.lint.per-file-ignores]
+"tests/**" = ["S101", "ANN"]   # asserts and untyped fixtures are fine in tests

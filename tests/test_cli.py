@@ -1,7 +1,9 @@
+from pathlib import Path
+
 import pytest
 
 import fitbatch
-from fitbatch.cli import build_parser
+from fitbatch.cli import build_parser, main
 
 
 def test_version_flag(capsys: pytest.CaptureFixture[str]) -> None:
@@ -16,7 +18,14 @@ def test_gui_is_default_command() -> None:
     assert build_parser().parse_args(["gui"]).command == "gui"
 
 
-def test_gui_module_imports() -> None:
-    from fitbatch import gui
+def test_info_shows_data_folder(
+    capsys: pytest.CaptureFixture[str], isolated_data_dir: Path
+) -> None:
+    assert main(["info"]) == 0
+    assert str(isolated_data_dir) in capsys.readouterr().out
 
-    assert callable(gui.build_page)
+
+def test_gui_module_imports() -> None:
+    from fitbatch.ui import app
+
+    assert callable(app.build_page)
