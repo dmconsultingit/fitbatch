@@ -48,3 +48,16 @@ class Activity:
     def __post_init__(self) -> None:
         if self.start_time.tzinfo is None:
             raise ValueError("Activity.start_time must be timezone-aware")
+
+
+@dataclass(frozen=True, slots=True)
+class DownloadedFile:
+    """One file delivered by an adapter.
+
+    A single download can yield several files (e.g. a ZIP with two FIT files) or a file in a
+    different format than requested (an activity uploaded as GPX has no original FIT).
+    """
+
+    extension: str  # with leading dot, e.g. ".fit"
+    data: bytes
+    is_substitute: bool = False  # True when the platform had no file in the requested format

@@ -30,6 +30,8 @@ classifiers = [
 dependencies = [
     "flet[desktop]>=1.1,<2",
     "platformdirs>=4.3",
+    # Pinned on purpose (N2): unofficial client, check releases and advisories before upgrading.
+    "garminconnect==0.3.20",
 ]
 
 [project.optional-dependencies]

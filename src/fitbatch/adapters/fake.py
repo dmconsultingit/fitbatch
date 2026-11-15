@@ -2,15 +2,20 @@
 
 from __future__ import annotations
 
-from collections.abc import Iterable, Sequence
+from collections.abc import Callable, Iterable, Sequence
 from datetime import datetime
 
 from fitbatch.adapters.base import AdapterError
-from fitbatch.core.models import Activity, Capability, ExportFormat
+from fitbatch.core.models import Activity, Capability, DownloadedFile, ExportFormat
+
+FailureHook = Callable[[Activity, ExportFormat], None]
 
 
 class FakeAdapter:
-    """Serves a fixed list of activities and returns predictable file content."""
+    """Serves a fixed list of activities and returns predictable file content.
+
+    ``fail_with`` lets tests raise adapter errors (rate limit, missing file, ...) on demand.
+    """
 
     def __init__(
         self,
@@ -19,11 +24,13 @@ class FakeAdapter:
         capabilities: Iterable[Capability] = (Capability.LIST_ACTIVITIES, Capability.DOWNLOAD),
         remote_formats: Iterable[ExportFormat] = tuple(ExportFormat),
         account: str = "fake-account",
+        fail_with: FailureHook | None = None,
     ) -> None:
         self._activities = list(activities)
         self._capabilities = frozenset(capabilities)
         self._remote_formats = frozenset(remote_formats)
         self._account = account
+        self._fail_with = fail_with
         self.download_calls: list[tuple[str, ExportFormat]] = []
 
     @property
@@ -49,8 +56,10 @@ class FakeAdapter:
     def list_activities(self, start: datetime, end: datetime) -> Sequence[Activity]:
         return [a for a in self._activities if start <= a.start_time <= end]
 
-    def download(self, activity: Activity, fmt: ExportFormat) -> bytes:
+    def download(self, activity: Activity, fmt: ExportFormat) -> list[DownloadedFile]:
         if fmt not in self._remote_formats:
             raise AdapterError(f"Format {fmt.value} is not available remotely")
         self.download_calls.append((activity.activity_id, fmt))
-        return f"{activity.activity_id}:{fmt.value}".encode()
+        if self._fail_with is not None:
+            self._fail_with(activity, fmt)
+        return [DownloadedFile(f".{fmt.value}", f"{activity.activity_id}:{fmt.value}".encode())]

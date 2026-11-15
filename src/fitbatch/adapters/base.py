@@ -6,7 +6,7 @@ from collections.abc import Sequence
 from datetime import datetime
 from typing import Protocol, runtime_checkable
 
-from fitbatch.core.models import Activity, Capability, ExportFormat
+from fitbatch.core.models import Activity, Capability, DownloadedFile, ExportFormat
 
 
 class AdapterError(Exception):
@@ -20,9 +20,9 @@ class AuthenticationError(AdapterError):
 class RateLimitError(AdapterError):
     """The platform asked us to slow down (e.g. HTTP 429). Never retry in a tight loop (N2, N4)."""
 
-    def __init__(self, message: str, retry_after_s: float | None = None) -> None:
-        super().__init__(message)
-        self.retry_after_s = retry_after_s
+
+class NoFileError(AdapterError):
+    """The activity has no file in this format (e.g. added manually in Garmin Connect)."""
 
 
 @runtime_checkable
@@ -58,6 +58,9 @@ class PlatformAdapter(Protocol):
         """Activities that started between ``start`` and ``end`` (both timezone-aware)."""
         ...
 
-    def download(self, activity: Activity, fmt: ExportFormat) -> bytes:
-        """Raw file content of one activity in one of ``remote_formats``."""
+    def download(self, activity: Activity, fmt: ExportFormat) -> list[DownloadedFile]:
+        """Files of one activity in one of ``remote_formats``.
+
+        Raises ``NoFileError`` when there is nothing to download in that format.
+        """
         ...

@@ -19,14 +19,15 @@ Requirement IDs (F1…, N1…, D1…) refer to the project requirements document
 ## Architecture (N15) – layers and allowed imports
 
 ```
-ui/        Flet interface           → may import core, storage.paths
-core/      logic: export, filters,  → may import adapters (interface only), storage
-           registry, settings, conversions
-adapters/  one per platform + access method, behind PlatformAdapter (N11)
-storage/   data folder paths, atomic writes, encrypted secrets
+ui/, cli.py   user interfaces         → may import services, core, storage.paths
+services.py   composition root: builds adapters, secrets, guard, registry; login policy
+core/         logic: export, filters, → may import adapters (interface only), storage
+              registry, login guard, settings, conversions
+adapters/     one per platform + access method, behind PlatformAdapter (N11)
+storage/      data folder paths, atomic writes, encrypted secrets
 ```
 
-- The UI never calls a platform or an adapter's network code directly; it goes through `core`.
+- The UI never creates an adapter or calls a platform; it uses `services` and `core`.
 - `core` depends on the `PlatformAdapter` protocol, never on a concrete adapter.
 - Adapters declare `capabilities` and `remote_formats`; the UI enables/greys out features from
   them. Adding a platform must not require changes in export, filters or the registry.

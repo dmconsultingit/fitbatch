@@ -4,7 +4,7 @@ import pytest
 
 from fitbatch.adapters import AdapterError, PlatformAdapter
 from fitbatch.adapters.fake import FakeAdapter
-from fitbatch.core.models import Activity, Capability, ExportFormat
+from fitbatch.core.models import Activity, Capability, DownloadedFile, ExportFormat
 
 
 def test_fake_adapter_satisfies_interface() -> None:
@@ -25,7 +25,7 @@ def test_list_activities_filters_by_range(activity: Activity) -> None:
 
 def test_download_respects_declared_formats(activity: Activity) -> None:
     adapter = FakeAdapter([activity], remote_formats=[ExportFormat.FIT])
-    assert adapter.download(activity, ExportFormat.FIT) == b"123:fit"
+    assert adapter.download(activity, ExportFormat.FIT) == [DownloadedFile(".fit", b"123:fit")]
     with pytest.raises(AdapterError):
         adapter.download(activity, ExportFormat.GPX)
 

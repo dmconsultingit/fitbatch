@@ -7,8 +7,15 @@ capabilities; it never knows which platform or method is behind it.
 from fitbatch.adapters.base import (
     AdapterError,
     AuthenticationError,
+    NoFileError,
     PlatformAdapter,
     RateLimitError,
 )
 
-__all__ = ["AdapterError", "AuthenticationError", "PlatformAdapter", "RateLimitError"]
+__all__ = [
+    "AdapterError",
+    "AuthenticationError",
+    "NoFileError",
+    "PlatformAdapter",
+    "RateLimitError",
+]
