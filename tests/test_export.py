@@ -171,3 +171,37 @@ def test_request_validation(tmp_path: Path) -> None:
         ExportRequest(END, START, [ExportFormat.FIT], tmp_path)
     with pytest.raises(ValueError, match="format"):
         ExportRequest(START, END, [], tmp_path)
+
+
+def test_new_folder_downloads_again(tmp_path: Path, registry, activity: Activity) -> None:
+    adapter = FakeAdapter([activity])
+    exporter, _, _ = make_exporter(adapter, registry)
+    exporter.run(ExportRequest(START, END, [ExportFormat.FIT], tmp_path / "a"), [activity])
+    summary = exporter.run(
+        ExportRequest(START, END, [ExportFormat.FIT], tmp_path / "b"), [activity]
+    )
+    assert summary.saved == 1
+    assert len(adapter.download_calls) == 2
+    assert (tmp_path / "b" / default_file_name(activity, ".fit")).exists()
+
+
+def test_deleted_file_is_downloaded_again(tmp_path: Path, registry, activity: Activity) -> None:
+    adapter = FakeAdapter([activity])
+    exporter, _, _ = make_exporter(adapter, registry)
+    req = request_for(tmp_path)
+    exporter.run(req, [activity])
+    (req.out_dir / default_file_name(activity, ".fit")).unlink()
+    summary = exporter.run(req, [activity])
+    assert summary.saved == 1
+
+
+def test_back_to_first_folder_with_file_present_is_skipped(
+    tmp_path: Path, registry, activity: Activity
+) -> None:
+    exporter, _, _ = make_exporter(FakeAdapter([activity]), registry)
+    first = ExportRequest(START, END, [ExportFormat.FIT], tmp_path / "a")
+    exporter.run(first, [activity])
+    exporter.run(ExportRequest(START, END, [ExportFormat.FIT], tmp_path / "b"), [activity])
+    summary = exporter.run(first, [activity])
+    assert summary.saved == 0
+    assert summary.skipped_by_reason == {"exists_on_disk": 1}

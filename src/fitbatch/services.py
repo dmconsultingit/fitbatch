@@ -6,6 +6,7 @@ create an adapter themselves (N15).
 
 from __future__ import annotations
 
+import logging
 from dataclasses import dataclass
 
 from fitbatch.adapters.base import AuthenticationError, RateLimitError
@@ -15,6 +16,8 @@ from fitbatch.core.registry import DownloadRegistry
 from fitbatch.core.settings import Settings
 from fitbatch.storage.paths import AppPaths, default_paths
 from fitbatch.storage.secrets import SecretStore, default_secret_store
+
+log = logging.getLogger(__name__)
 
 
 @dataclass(slots=True)
@@ -33,9 +36,13 @@ class AppServices:
     def connect_saved_garmin_email(self) -> GarminEmailAdapter | None:
         """Reconnect with the saved session; ``None`` if the user has to log in again."""
         try:
-            return self.garmin_email.restore()
+            adapter = self.garmin_email.restore()
         except AuthenticationError:
+            log.info("Saved Garmin session rejected; password login required")
             return None
+        if adapter is not None:
+            log.info("Connected to Garmin with the saved session (account %s)", adapter.account)
+        return adapter
 
     def login_garmin_email(
         self, email: str, password: str, mfa_provider: MfaProvider
@@ -45,14 +52,17 @@ class AppServices:
         try:
             adapter = self.garmin_email.login(email, password, mfa_provider)
         except RateLimitError:
+            log.warning("Password login rate limited by Garmin; login paused")
             self.login_guard.record_rate_limit()
             raise
         except AuthenticationError:
+            log.warning("Password login rejected")
             self.login_guard.record_failure()
             raise
         finally:
             del password
         self.login_guard.record_success()
+        log.info("Logged in to Garmin with password (account %s)", adapter.account)
         return adapter
 
 

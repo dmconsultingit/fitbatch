@@ -28,4 +28,5 @@ def test_info_shows_data_folder(
 def test_gui_module_imports() -> None:
     from fitbatch.ui import app
 
-    assert callable(app.build_page)
+    assert callable(app.main)
+    assert hasattr(app.FitBatchApp, "show_main")

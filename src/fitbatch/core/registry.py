@@ -45,11 +45,16 @@ class DownloadRegistry:
         self.close()
 
     def is_downloaded(self, activity: Activity, fmt: ExportFormat) -> bool:
+        return self.downloaded_path(activity, fmt) is not None
+
+    def downloaded_path(self, activity: Activity, fmt: ExportFormat) -> Path | None:
+        """Where this activity was last saved in this format, or ``None`` if never."""
         row = self._conn.execute(
-            "SELECT 1 FROM downloads WHERE platform=? AND account=? AND activity_id=? AND format=?",
+            "SELECT file_path FROM downloads "
+            "WHERE platform=? AND account=? AND activity_id=? AND format=?",
             (activity.platform, activity.account, activity.activity_id, fmt.value),
         ).fetchone()
-        return row is not None
+        return Path(row[0]) if row else None
 
     def mark_downloaded(self, activity: Activity, fmt: ExportFormat, file_path: Path) -> None:
         self._conn.execute(

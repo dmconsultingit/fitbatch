@@ -112,6 +112,14 @@ class _JobPaused(Exception):
         self.reason = reason
 
 
+def _is_in(path: Path, folder: Path) -> bool:
+    """``path`` exists and lies directly in ``folder`` (compared after resolving)."""
+    try:
+        return path.exists() and path.resolve().parent == folder.resolve()
+    except OSError:
+        return False
+
+
 def default_file_name(activity: Activity, extension: str, index: int = 0) -> str:
     """F10 default: RRRR-MM-DD_type_ID.ext (local date, D8), Windows-safe."""
     local_day = activity.start_time.astimezone().date().isoformat()
@@ -150,6 +158,13 @@ class Exporter:
         summary = ExportSummary(out_dir=request.out_dir)
         request.out_dir.mkdir(parents=True, exist_ok=True)
         total = len(activities)
+        log.info(
+            "Export started: %d activities, formats %s, platform %s/%s",
+            total,
+            ",".join(f.value for f in request.formats),
+            self._adapter.platform_id,
+            self._adapter.method_id,
+        )
         try:
             for done, activity in enumerate(activities, 1):
                 if cancel is not None and cancel.is_set():
@@ -160,6 +175,15 @@ class Exporter:
                     self._export_one(request, activity, fmt, summary)
         except _JobPaused as paused:
             summary.paused_reason = paused.reason
+        log.info(
+            "Export finished: saved %d, skipped %d %s, failed %d, cancelled %s, paused %s",
+            summary.saved,
+            summary.skipped,
+            summary.skipped_by_reason,
+            summary.failed,
+            summary.cancelled,
+            summary.paused_reason,
+        )
         return summary
 
     # --- one activity in one format -------------------------------------------------------------
@@ -179,7 +203,10 @@ class Exporter:
         if fmt not in self._adapter.remote_formats:
             # Local conversion from FIT comes in a later stage.
             return self._skip(summary, activity, fmt, "local_only")
-        if not request.overwrite and self._registry.is_downloaded(activity, fmt):
+        # Skip only when the file really is in the chosen folder: another folder, or a file the
+        # user deleted, means download again (F10; open question "registry vs disk").
+        recorded = self._registry.downloaded_path(activity, fmt)
+        if not request.overwrite and recorded is not None and _is_in(recorded, request.out_dir):
             return self._skip(summary, activity, fmt, "already_downloaded")
         target = request.out_dir / default_file_name(activity, f".{fmt.value}")
         if not request.overwrite and target.exists():

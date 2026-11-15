@@ -23,6 +23,8 @@ class Settings:
     download_dir: str = field(default_factory=_default_download_dir)
     formats: list[str] = field(default_factory=lambda: [ExportFormat.FIT.value])
     language: str = "pl"
+    recent_include: list[str] = field(default_factory=list)  # F7: recently used phrases
+    recent_exclude: list[str] = field(default_factory=list)
 
     @classmethod
     def load(cls, path: Path) -> Settings:
