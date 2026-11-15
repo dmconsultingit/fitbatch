@@ -1,0 +1,33 @@
+# Python
+__pycache__/
+*.py[cod]
+*.egg-info/
+.venv/
+venv/
+
+# Build artifacts
+build/
+dist/
+
+# Test & tooling caches
+.pytest_cache/
+.coverage
+htmlcov/
+.mypy_cache/
+.ruff_cache/
+
+# Flet build output
+storage/
+
+# Never commit credentials or downloaded training data
+.env
+*.token
+garth_tokens/
+*.fit
+*.FIT
+
+# OS / editors
+.DS_Store
+Thumbs.db
+.idea/
+.vscode/

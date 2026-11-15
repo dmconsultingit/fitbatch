@@ -1,0 +1,55 @@
+[build-system]
+requires = ["hatchling>=1.27"]
+build-backend = "hatchling.build"
+
+[project]
+name = "fitbatch"
+version = "0.0.1"
+description = "Bulk download & upload of your training data. For Garmin Connect."
+readme = "README.md"
+requires-python = ">=3.10"
+license = "GPL-3.0-or-later"
+license-files = ["LICENSE"]
+authors = [{ name = "Dawid Medyński" }]
+keywords = ["garmin", "garmin-connect", "fit", "training", "export", "import", "running", "cycling", "triathlon"]
+classifiers = [
+    "Development Status :: 1 - Planning",
+    "Environment :: Console",
+    "Environment :: X11 Applications",
+    "Environment :: Win32 (MS Windows)",
+    "Intended Audience :: End Users/Desktop",
+    "Operating System :: Microsoft :: Windows",
+    "Operating System :: POSIX :: Linux",
+    "Operating System :: MacOS",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3 :: Only",
+    "Topic :: Utilities",
+]
+dependencies = [
+    "flet[desktop]>=1.1,<2",
+]
+
+[project.optional-dependencies]
+dev = [
+    "pytest>=8",
+    "build>=1.2",
+    "twine>=6",
+    "flet[cli]>=1.1,<2",
+]
+
+[project.urls]
+Homepage = "https://fitbatch.app"
+Repository = "https://github.com/dmconsultingit/fitbatch"
+Issues = "https://github.com/dmconsultingit/fitbatch/issues"
+
+[project.scripts]
+fitbatch = "fitbatch.cli:main"
+
+[project.gui-scripts]
+fitbatch-gui = "fitbatch.gui:main"
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/fitbatch"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
