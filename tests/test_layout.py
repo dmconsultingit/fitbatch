@@ -101,3 +101,37 @@ def test_export_with_types_open_and_list(app: FitBatchApp) -> None:
     assert _problems(app.page.controls[0]) == []
     app._set_type_query("bik")
     assert _problems(app.page.controls[0]) == []
+
+
+def test_scrolling_columns_have_no_expand_children(app: FitBatchApp) -> None:
+    """Flutter cannot size an expand child inside a scrolling column (grey box)."""
+
+    def walk(control: Any) -> list[str]:
+        issues: list[str] = []
+        kids = _children(control)
+        if isinstance(control, ft.Column) and control.scroll:
+            issues += [type(c).__name__ for c in kids if getattr(c, "expand", None)]
+        for child in kids:
+            issues += walk(child)
+        return issues
+
+    for screen in ("connect", "export", "files", "accounts", "settings"):
+        app.go(screen)
+        assert walk(app.page.controls[0]) == [], screen
+
+
+def test_sidebar_groups_platforms(app: FitBatchApp) -> None:
+    app.go("export")
+    texts: list[str] = []
+
+    def collect(control: Any) -> None:
+        value = getattr(control, "value", None)
+        if isinstance(value, str):
+            texts.append(value)
+        for child in _children(control):
+            collect(child)
+
+    collect(app.page.controls[0].controls[0])  # the sidebar
+    assert [t for t in texts if t in {"GARMIN", "SUUNTO", "WAHOO"}] == ["GARMIN", "SUUNTO", "WAHOO"]
+    assert texts.count("soon") == 3  # Import, Suunto, Wahoo: one wording everywhere
+    assert "coming soon" not in texts

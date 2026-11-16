@@ -274,17 +274,48 @@ class FitBatchApp:
             self._save_settings()
             self.render()
 
+        def platform_header(name: str, *, available: bool) -> ft.Container:
+            """Group label per platform; platforms not supported yet show only "soon"."""
+            parts: list[ft.Control] = [
+                ft.Text(
+                    name.upper(),
+                    font_family=BODY_SEMIBOLD,
+                    size=12,
+                    color=p.muted,
+                )
+            ]
+            if not available:
+                parts += [ft.Container(expand=True), k.pill(tr("common.soon"))]
+            return ft.Container(
+                ft.Row(parts, spacing=8, vertical_alignment=ft.CrossAxisAlignment.CENTER),
+                padding=ft.Padding.only(left=12, right=4, top=14, bottom=4),
+            )
+
         current_theme = "dark" if p.dark else "light"
+        # Upper part scrolls if the window is short; the lower part (support, theme) stays put.
+        # No expand inside the scrolling column: Flutter cannot size it there.
+        navigation = ft.Column(
+            [
+                ft.Container(logo, padding=ft.Padding.only(left=8, bottom=8, top=4)),
+                platform_header("Garmin", available=True),
+                nav("export", ft.Icons.DOWNLOAD_ROUNDED, tr("nav.export")),
+                nav("files", ft.Icons.FOLDER_OUTLINED, tr("nav.files")),
+                nav("import", ft.Icons.UPLOAD_ROUNDED, tr("nav.import"), disabled=True),
+                platform_header("Suunto", available=False),
+                platform_header("Wahoo", available=False),
+                ft.Container(ft.Divider(height=1, thickness=1, color=p.border), padding=8),
+                nav("accounts", ft.Icons.KEY_OUTLINED, tr("nav.accounts")),
+                nav("settings", ft.Icons.TUNE, tr("nav.settings")),
+            ],
+            spacing=4,
+            scroll=ft.ScrollMode.AUTO,
+            expand=True,
+        )
         return ft.Container(
             ft.Column(
                 [
-                    ft.Container(logo, padding=ft.Padding.only(left=8, bottom=18, top=4)),
-                    nav("export", ft.Icons.DOWNLOAD_ROUNDED, tr("nav.export")),
-                    nav("files", ft.Icons.FOLDER_OUTLINED, tr("nav.files")),
-                    nav("import", ft.Icons.UPLOAD_ROUNDED, tr("nav.import"), disabled=True),
-                    nav("accounts", ft.Icons.KEY_OUTLINED, tr("nav.accounts")),
-                    nav("settings", ft.Icons.TUNE, tr("nav.settings")),
-                    ft.Container(expand=True),
+                    navigation,
+                    ft.Container(height=8),
                     self._support_card(),
                     ft.Container(height=8),
                     k.text(tr("nav.theme"), 12, muted=True),
