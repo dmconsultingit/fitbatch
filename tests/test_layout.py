@@ -123,6 +123,15 @@ def test_import_with_files_and_progress(app: FitBatchApp, tmp_path: Path) -> Non
     assert screen.job.uploaded == 1
 
 
+def test_import_tabs(app: FitBatchApp) -> None:
+    app.go("import")
+    assert app.import_screen.tab == "activities"
+    app.import_screen.tab = "workouts"
+    app.render()
+    assert _problems(app.page.controls[0]) == []
+    app.import_screen.tab = "activities"
+
+
 def test_scrolling_columns_have_no_expand_children(app: FitBatchApp) -> None:
     """Flutter cannot size an expand child inside a scrolling column (grey box)."""
 

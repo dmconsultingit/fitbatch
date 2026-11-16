@@ -196,7 +196,13 @@ _EN: dict[str, str] = {
     "settings.delay_hint": "Pause between downloads protects your account from lockouts",
     "settings.saved": "Settings saved.",
     # import / upload (F18)
-    "import.screen_title": "Import activities",
+    "import.screen_title": "Import",
+    "import.tab.activities": "Activities",
+    "import.tab.workouts": "Workouts",
+    "import.workouts.title": "Upload workouts to Garmin Connect",
+    "import.workouts.text": "Create workouts in Garmin Connect from a file instead of building "
+    "them one by one with “Create workout”, and put them in your calendar.",
+    "import.workouts.note": "Planned for a later version.",
     "import.title": "Upload activities to Garmin Connect",
     "import.intro": "Choose FIT, GPX or TCX files, or a whole folder, for example a Strava or "
     "Suunto export. Compressed .gz files are fine.",

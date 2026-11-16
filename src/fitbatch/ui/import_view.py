@@ -69,6 +69,7 @@ class ImportScreen:
         self.job = UploadJob()
         self.cancel_event: threading.Event | None = None
         self.notice = ""
+        self.tab = "activities"  # "activities" (files) | "workouts" (planned)
         self._pending_for: str | None = None  # account the pending list was computed for
 
     # --- helpers ---------------------------------------------------------------------------------
@@ -93,7 +94,48 @@ class ImportScreen:
 
     # --- view ------------------------------------------------------------------------------------
 
-    def view(self) -> tuple[ft.Control, ft.Control]:
+    def view(self) -> tuple[ft.Control, ft.Control | None]:
+        k, tr = self.app.k, self.app.tr
+
+        def select(tab: str) -> None:
+            self.tab = tab
+            self.app.render()
+
+        tabs = ft.Row(
+            [
+                k.segmented(
+                    [
+                        ("activities", tr("import.tab.activities")),
+                        ("workouts", tr("import.tab.workouts")),
+                    ],
+                    self.tab,
+                    select,
+                )
+            ]
+        )
+        if self.tab == "workouts":
+            return ft.Column([tabs, self._workouts_view()], spacing=16), None
+        body, footer = self._activities_view()
+        return ft.Column([tabs, body], spacing=16), footer
+
+    def _workouts_view(self) -> ft.Control:
+        k, tr = self.app.k, self.app.tr
+        return k.card(
+            ft.Column(
+                [
+                    ft.Row(
+                        [k.strong(tr("import.workouts.title"), 18), k.pill(tr("common.soon"))],
+                        spacing=12,
+                        vertical_alignment=ft.CrossAxisAlignment.CENTER,
+                    ),
+                    k.text(tr("import.workouts.text"), 14),
+                    k.text(tr("import.workouts.note"), 13, muted=True),
+                ],
+                spacing=10,
+            )
+        )
+
+    def _activities_view(self) -> tuple[ft.Control, ft.Control]:
         k, tr = self.app.k, self.app.tr
         busy = self.scanning or self.job.running
         if self.files and not busy and self._account() != self._pending_for:
