@@ -216,3 +216,49 @@ def test_default_factory_ignores_plaintext_token_env(monkeypatch: pytest.MonkeyP
     client = garmin_email._default_factory()
     assert "GARMINTOKENS" not in __import__("os").environ
     assert client.__class__.__name__ == "Garmin"
+
+
+class CategoryGarmin(FakeGarmin):
+    calls: list = []
+
+    def get_activities_by_date(self, start: str, end: str, activity_type: Any) -> list[dict]:
+        CategoryGarmin.calls.append(activity_type)
+        if activity_type == "refused":
+            from garminconnect import GarminConnectConnectionError
+
+            raise GarminConnectConnectionError("client error: sub type")
+        if activity_type is None:
+            return RAW_ACTIVITIES
+        return [r for r in RAW_ACTIVITIES if r["activityType"]["typeKey"] == activity_type]
+
+    def get_activity_types(self) -> list[dict]:
+        return [{"typeId": 17, "typeKey": "all", "parentTypeId": None}]
+
+
+def test_list_by_categories_asks_garmin_per_category(secrets) -> None:
+    CategoryGarmin.calls = []
+    adapter = GarminEmailLogin(secrets, client_factory=CategoryGarmin).login(
+        "a@b.c", "pw", lambda: ""
+    )
+    start, end = datetime(2026, 9, 1, tzinfo=UTC), datetime(2026, 10, 31, tzinfo=UTC)
+    acts = adapter.list_activities(start, end, categories=["running"])
+    assert [a.activity_id for a in acts] == ["111"]
+    assert CategoryGarmin.calls == ["running"]
+
+
+def test_refused_category_falls_back_to_full_list(secrets) -> None:
+    CategoryGarmin.calls = []
+    adapter = GarminEmailLogin(secrets, client_factory=CategoryGarmin).login(
+        "a@b.c", "pw", lambda: ""
+    )
+    start, end = datetime(2026, 9, 1, tzinfo=UTC), datetime(2026, 10, 31, tzinfo=UTC)
+    acts = adapter.list_activities(start, end, categories=["refused"])
+    assert len(acts) == 2
+    assert CategoryGarmin.calls == ["refused", None]
+
+
+def test_activity_types_are_returned(secrets) -> None:
+    adapter = GarminEmailLogin(secrets, client_factory=CategoryGarmin).login(
+        "a@b.c", "pw", lambda: ""
+    )
+    assert adapter.activity_types()[0]["typeKey"] == "all"

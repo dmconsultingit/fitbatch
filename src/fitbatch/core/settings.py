@@ -11,7 +11,8 @@ from platformdirs import user_documents_dir
 from fitbatch.core.models import ExportFormat
 from fitbatch.storage.files import atomic_write
 
-SUPPORTED_LANGUAGES = ("pl", "en")
+SUPPORTED_LANGUAGES = ("en",)  # D18: English first, translations for the final version
+SUPPORTED_THEMES = ("dark", "light", "system")
 
 
 def _default_download_dir() -> str:
@@ -22,7 +23,9 @@ def _default_download_dir() -> str:
 class Settings:
     download_dir: str = field(default_factory=_default_download_dir)
     formats: list[str] = field(default_factory=lambda: [ExportFormat.FIT.value])
-    language: str = "pl"
+    language: str = "en"
+    theme: str = "dark"
+    activity_types: list[str] = field(default_factory=list)  # F7c: chosen type keys; [] = all
     recent_include: list[str] = field(default_factory=list)  # F7: recently used phrases
     recent_exclude: list[str] = field(default_factory=list)
 
@@ -38,6 +41,11 @@ class Settings:
         settings = cls(**known)
         if settings.language not in SUPPORTED_LANGUAGES:
             settings.language = defaults.language
+        if settings.theme not in SUPPORTED_THEMES:
+            settings.theme = defaults.theme
+        if not isinstance(settings.activity_types, list):
+            settings.activity_types = []
+        settings.activity_types = [t for t in settings.activity_types if isinstance(t, str)]
         valid_formats = {f.value for f in ExportFormat}
         settings.formats = [f for f in settings.formats if f in valid_formats] or defaults.formats
         return settings

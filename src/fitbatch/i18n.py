@@ -1,201 +1,218 @@
-"""User-facing texts in Polish and English (F21, N16)."""
+"""User-facing texts (N16).
+
+D18: the app is built in English first; other languages are added only for the final version.
+Every text still goes through ``tr("key")`` so a translation is one more column here.
+"""
 
 from __future__ import annotations
 
 from typing import Any
 
-DEFAULT_LANGUAGE = "pl"
+DEFAULT_LANGUAGE = "en"
+LANGUAGES = ("en",)
 
-_TEXTS: dict[str, dict[str, str]] = {
+_EN: dict[str, str] = {
     # general
-    "app.tagline": {
-        "pl": "Hurtowe pobieranie i wgrywanie danych treningowych. Dla Garmin Connect.",
-        "en": "Bulk download & upload of your training data. For Garmin Connect.",
-    },
-    "app.disclaimer": {
-        "pl": "FitBatch to niezależny, nieoficjalny projekt. Nie jest powiązany z Garmin Ltd. "
-        "ani innymi platformami, nie jest przez nie wspierany ani sponsorowany. Garmin i "
-        "Garmin Connect są znakami towarowymi Garmin Ltd. lub jej spółek zależnych.",
-        "en": "FitBatch is an independent, unofficial project. It is not affiliated with, "
-        "endorsed by or sponsored by Garmin Ltd. or any other platform. Garmin and Garmin "
-        "Connect are trademarks of Garmin Ltd. or its subsidiaries.",
-    },
-    "app.license": {"pl": "Licencja: GPL-3.0-or-later", "en": "License: GPL-3.0-or-later"},
-    "common.ok": {"pl": "OK", "en": "OK"},
-    "common.cancel": {"pl": "Anuluj", "en": "Cancel"},
-    "common.save": {"pl": "Zapisz", "en": "Save"},
-    "common.close": {"pl": "Zamknij", "en": "Close"},
-    "common.about": {"pl": "O programie", "en": "About"},
-    "common.settings": {"pl": "Ustawienia", "en": "Settings"},
-    "common.soon": {"pl": "wkrótce", "en": "coming soon"},
+    "app.tagline": "Bulk download & upload of your training data. For Garmin Connect.",
+    "app.disclaimer": "FitBatch is an independent, unofficial project. It is not affiliated "
+    "with, endorsed by or sponsored by Garmin Ltd. or any other platform. Garmin and Garmin "
+    "Connect are trademarks of Garmin Ltd. or its subsidiaries.",
+    "app.license": "License: GPL-3.0-or-later",
+    "common.ok": "OK",
+    "common.cancel": "Cancel",
+    "common.close": "Close",
+    "common.about": "About FitBatch",
+    "common.soon": "soon",
+    "common.choose": "Choose…",
+    "support.text": "FitBatch is free. If it saves you time, you can support it.",
+    "support.button": "Support FitBatch",
+    "about.source": "Source code",
+    # navigation
+    "nav.label": "Main navigation",
+    "nav.export": "Export",
+    "nav.files": "Downloaded files",
+    "nav.import": "Import",
+    "nav.accounts": "Accounts",
+    "nav.settings": "Settings",
+    "nav.theme": "Theme",
+    "theme.dark": "Dark",
+    "theme.light": "Light",
+    "theme.system": "System",
     # connection (F1, F3, F4)
-    "conn.title": {"pl": "Połącz z platformą", "en": "Connect to a platform"},
-    "conn.platform": {"pl": "Platforma", "en": "Platform"},
-    "conn.method": {"pl": "Metoda logowania", "en": "Sign-in method"},
-    "conn.method.api_key": {
-        "pl": "Klucz API (zalecane, oficjalne) – wkrótce",
-        "en": "API key (recommended, official) – coming soon",
-    },
-    "conn.method.email": {
-        "pl": "E-mail + hasło (eksperymentalne)",
-        "en": "Email + password (experimental)",
-    },
-    "conn.email_warning": {
-        "pl": "Nieoficjalna metoda. Przy zbyt wielu zapytaniach Garmin może czasowo "
-        "zablokować logowanie. Hasło służy tylko do tego logowania i nigdy nie jest zapisywane.",
-        "en": "Unofficial method. Too many requests can make Garmin block sign-in for a while. "
-        "Your password is used only for this sign-in and is never saved.",
-    },
-    "conn.email": {"pl": "E-mail", "en": "Email"},
-    "conn.password": {"pl": "Hasło", "en": "Password"},
-    "conn.connect": {"pl": "Połącz", "en": "Connect"},
-    "conn.skip": {"pl": "Pomiń (bez połączenia)", "en": "Skip (offline)"},
-    "conn.connecting": {"pl": "Łączę z Garmin Connect…", "en": "Connecting to Garmin Connect…"},
-    "conn.restoring": {"pl": "Odnawiam zapisaną sesję…", "en": "Restoring the saved session…"},
-    "conn.failed": {"pl": "Nie udało się połączyć: {error}", "en": "Could not connect: {error}"},
-    "conn.locked": {
-        "pl": "Zbyt wiele prób. Spróbuj ponownie za {minutes} min.",
-        "en": "Too many attempts. Try again in {minutes} min.",
-    },
-    "conn.missing_fields": {"pl": "Podaj e-mail i hasło.", "en": "Enter email and password."},
-    "conn.mfa_title": {"pl": "Kod weryfikacyjny", "en": "Verification code"},
-    "conn.mfa_text": {
-        "pl": "Garmin wysłał kod weryfikacyjny. Wpisz go poniżej.",
-        "en": "Garmin sent a verification code. Enter it below.",
-    },
-    "status.connected": {"pl": "Garmin · {account}", "en": "Garmin · {account}"},
-    "status.offline": {"pl": "Brak połączenia", "en": "Not connected"},
-    "accounts.title": {"pl": "Konta", "en": "Accounts"},
-    "accounts.email_connected": {
-        "pl": "E-mail + hasło: połączono ({account})",
-        "en": "Email + password: connected ({account})",
-    },
-    "accounts.email_saved": {
-        "pl": "E-mail + hasło: zapisana sesja na tym komputerze",
-        "en": "Email + password: session saved on this computer",
-    },
-    "accounts.email_none": {
-        "pl": "E-mail + hasło: niepołączono",
-        "en": "Email + password: not connected",
-    },
-    "accounts.api_key": {"pl": "Klucz API: wkrótce", "en": "API key: coming soon"},
-    "accounts.delete": {
-        "pl": "Rozłącz i usuń zapisane dane",
-        "en": "Disconnect and delete saved data",
-    },
-    "accounts.connect": {"pl": "Połącz", "en": "Connect"},
+    "conn.title": "Connect to Garmin Connect",
+    "conn.subtitle": "Choose how FitBatch signs in to your account.",
+    "conn.method.api_key": "API key",
+    "conn.method.api_key.badge": "recommended · official",
+    "conn.method.api_key.text": "No risk of account lockout. Available in the next version.",
+    "conn.method.email": "Email + password",
+    "conn.method.email.badge": "experimental",
+    "conn.email_warning": "Unofficial method. Too many requests can make Garmin block sign-in "
+    "for a while. Your password is used only for this sign-in and is never saved.",
+    "conn.email": "Email",
+    "conn.password": "Password",
+    "conn.connect": "Connect",
+    "conn.skip": "Continue offline",
+    "conn.connecting": "Connecting to Garmin Connect…",
+    "conn.restoring": "Restoring your saved session…",
+    "conn.failed": "Could not connect: {error}",
+    "conn.locked": "Too many attempts. Try again in {minutes} min.",
+    "conn.missing_fields": "Enter your email and password.",
+    "conn.mfa_title": "Verification code",
+    "conn.mfa_text": "Garmin sent you a verification code. Enter it below.",
+    "status.connected": "Garmin Connect · {account}",
+    "status.method.email": "email",
+    "status.offline": "Not connected",
+    # accounts
+    "accounts.connected": "Connected",
+    "accounts.saved": "Session saved",
+    "accounts.not_connected": "Not connected",
+    "accounts.account": "Account: {account} · session encrypted on this computer",
+    "accounts.saved_text": "A session is saved on this computer.",
+    "accounts.none_text": "Sign in once; the session is kept encrypted on this computer.",
+    "accounts.connect": "Connect",
+    "accounts.delete": "Delete saved data",
+    "accounts.more_platforms": "More platforms",
+    "accounts.more_text": "Support for more platforms is planned. FIT is the exchange format.",
     # export (F5–F16)
-    "export.from": {"pl": "Od (RRRR-MM-DD)", "en": "From (YYYY-MM-DD)"},
-    "export.to": {"pl": "Do (RRRR-MM-DD)", "en": "To (YYYY-MM-DD)"},
-    "export.range.7d": {"pl": "7 dni", "en": "7 days"},
-    "export.range.30d": {"pl": "30 dni", "en": "30 days"},
-    "export.range.year": {"pl": "Rok", "en": "Year"},
-    "export.range.all": {"pl": "Wszystko", "en": "All"},
-    "export.bad_date": {"pl": "Nieprawidłowa data", "en": "Invalid date"},
-    "export.bad_range": {"pl": "„Od” musi być ≤ „Do”", "en": "“From” must be ≤ “To”"},
-    "export.formats": {"pl": "Formaty", "en": "Formats"},
-    "export.no_format": {
-        "pl": "Wybierz co najmniej jeden format.",
-        "en": "Choose at least one format.",
-    },
-    "format.fit": {"pl": "FIT (oryginał)", "en": "FIT (original)"},
-    "format.tcx": {"pl": "TCX", "en": "TCX"},
-    "format.gpx": {"pl": "GPX", "en": "GPX"},
-    "format.kml": {"pl": "KML (Google Earth)", "en": "KML (Google Earth)"},
-    "format.splits.csv": {"pl": "Podziały (CSV)", "en": "Splits (CSV)"},
-    "export.include": {
-        "pl": "Nazwa zawiera (frazy po przecinku)",
-        "en": "Name contains (comma-separated)",
-    },
-    "export.exclude": {"pl": "Nazwa nie zawiera", "en": "Name does not contain"},
-    "export.types": {"pl": "Typy aktywności", "en": "Activity types"},
-    "export.folder": {"pl": "Folder docelowy", "en": "Target folder"},
-    "export.choose_folder": {"pl": "Wybierz…", "en": "Choose…"},
-    "export.overwrite": {"pl": "Pobierz ponownie i nadpisz", "en": "Download again and overwrite"},
-    "export.list": {"pl": "Pobierz listę aktywności", "en": "Get activity list"},
-    "export.listing": {"pl": "Pobieram listę aktywności…", "en": "Getting the activity list…"},
-    "export.matches": {"pl": "Pasuje {matched} z {total}", "en": "{matched} of {total} match"},
-    "export.selected": {"pl": "zaznaczono {count}", "en": "{count} selected"},
-    "export.select_all": {"pl": "Zaznacz wszystkie", "en": "Select all"},
-    "export.select_none": {"pl": "Odznacz wszystkie", "en": "Select none"},
-    "export.start": {"pl": "Pobierz zaznaczone", "en": "Download selected"},
-    "export.resume": {"pl": "Wznów", "en": "Resume"},
-    "export.cancel": {"pl": "Anuluj", "en": "Cancel"},
-    "export.cancelling": {"pl": "Kończę bieżący plik…", "en": "Finishing the current file…"},
-    "export.need_connection": {
-        "pl": "Połącz się z Garmin Connect, aby pobrać listę.",
-        "en": "Connect to Garmin Connect to get the list.",
-    },
-    "export.nothing_selected": {
-        "pl": "Nie zaznaczono żadnej aktywności.",
-        "en": "No activity selected.",
-    },
-    "export.progress": {"pl": "{done} / {total} · {name}", "en": "{done} / {total} · {name}"},
-    "export.summary": {
-        "pl": "Pobrano {saved}, pominięto {skipped}, błędy {failed}.",
-        "en": "Saved {saved}, skipped {skipped}, errors {failed}.",
-    },
-    "export.cancelled": {
-        "pl": "Anulowano. „Wznów” dokończy pozostałe.",
-        "en": "Cancelled. “Resume” finishes the rest.",
-    },
-    "export.paused.rate_limit": {
-        "pl": "Wstrzymano: Garmin ogranicza zapytania. "
-        "Odczekaj kilkanaście minut i kliknij „Wznów”.",
-        "en": "Paused: Garmin is limiting requests. Wait 15+ minutes and click “Resume”.",
-    },
-    "export.paused.authentication": {
-        "pl": "Wstrzymano: sesja wygasła. Połącz się ponownie i kliknij „Wznów”.",
-        "en": "Paused: the session expired. Connect again and click “Resume”.",
-    },
-    "export.open_folder": {"pl": "Otwórz folder", "en": "Open folder"},
-    "export.error": {"pl": "Błąd: {error}", "en": "Error: {error}"},
+    "export.title": "Export activities",
+    "kpi.listed": "Activities in range",
+    "kpi.selected": "Selected",
+    "kpi.files": "Files to download",
+    "step.find": "Filters & formats",
+    "step.download": "Activities",
+    "export.save_as": "Save as",
+    "section.dates": "Date range",
+    "section.name": "Activity name",
+    "progress.starting": "Starting…",
+    "progress.downloading": "Downloading {fmt} · {name}",
+    "export.from": "From",
+    "export.to": "To",
+    "export.date_hint": "YYYY-MM-DD",
+    "export.range.7d": "7 days",
+    "export.range.30d": "30 days",
+    "export.range.year": "Year",
+    "export.range.all": "All",
+    "export.bad_date": "Invalid date",
+    "export.bad_range": "“From” must be on or before “To”.",
+    "export.formats_hint": "GPX and KML are created only for activities recorded with GPS.",
+    "export.no_format": "Choose at least one format.",
+    "format.fit": "FIT (original)",
+    "format.tcx": "TCX",
+    "format.gpx": "GPX",
+    "format.kml": "KML",
+    "format.splits.csv": "Splits CSV",
+    "filters.include": "Name contains (whole words, comma-separated)",
+    "filters.exclude": "Name does not contain",
+    "filters.types": "Activity types",
+    "filters.none_active": "no filters",
+    "filters.summary.include": "name has “{value}”",
+    "filters.summary.exclude": "without “{value}”",
+    "filters.summary.types": "{count} types",
+    "filters.matches": "{matched} of {total} match",
+    "list.loading": "Getting the activity list…",
+    "list.empty_offline": "Connect to Garmin Connect to get your activities.",
+    "list.selected": "{selected} of {matched} selected",
+    "list.select_all": "Select all",
+    "list.select_none": "Deselect all",
+    "list.empty": "Set the date range and filters, then click “Apply filters”.",
+    "filters.apply": "Apply filters",
+    "filters.pending": "Changes not applied yet — click “Apply filters” to get the list again.",
+    "filters.applied": "Showing {count} activities from {first} to {last}.",
+    "filters.not_applied": "Nothing listed yet — click “Apply filters” to get your activities.",
+    "filters.no_types": "Choose at least one activity type.",
+    "filters.search": "Search types",
+    "filters.select_all": "Select all",
+    "filters.deselect_all": "Deselect all",
+    "filters.types_all": "all types",
+    "filters.types_some": "{chosen} of {total} types",
+    "filters.no_match": "No activity type matches “{query}”.",
+    "list.page": "{first}–{last} of {total}",
+    "list.prev": "Previous page",
+    "list.next": "Next page",
+    "filters.general": "General",
+    "filters.show_all": "Show all categories",
+    "filters.show_listed": "Show only categories in the list",
+    "filters.expand": "Show types",
+    "filters.collapse": "Hide types",
+    "filters.types_hint": "Tip: choose types before getting the list, then Garmin sends only "
+    "those categories.",
+    "filters.refresh_needed": "Refresh the list to include the newly selected types.",
+    "col.date": "Date",
+    "col.name": "Name",
+    "col.type": "Type",
+    "col.status": "Status",
+    "status.in_folder": "in folder",
+    "status.new": "new",
+    "action.folder": "Target folder",
+    "action.change": "Change",
+    "action.overwrite": "Download again and overwrite",
+    "action.download": "Download {count} activities",
+    "action.cancel": "Cancel",
+    "action.resume": "Resume",
+    "action.open_folder": "Open folder",
+    "export.need_connection": "Connect to Garmin Connect first.",
+    "export.nothing_selected": "No activity selected.",
+    "progress.running": "Downloading…",
+    "progress.cancelling": "Finishing the current file…",
+    "progress.done": "Finished",
+    "progress.cancelled": "Cancelled — “Resume” finishes the rest.",
+    "progress.paused.rate_limit": "Paused: Garmin is limiting requests. Wait 15+ minutes, then "
+    "click “Resume”.",
+    "progress.paused.authentication": "Paused: the session expired. Connect again, then click "
+    "“Resume”.",
+    "progress.saved": "Saved {count}",
+    "progress.skipped": "Skipped {count}",
+    "progress.failed": "Errors {count}",
+    "progress.count": "{done} / {total}",
+    "export.error": "Error: {error}",
     # log lines (F14)
-    "log.saved": {"pl": "{fmt}: zapisano {file}", "en": "{fmt}: saved {file}"},
-    "log.saved_substitute": {
-        "pl": "{fmt}: brak FIT w Garminie, zapisano oryginał {file}",
-        "en": "{fmt}: no FIT on Garmin, original upload saved as {file}",
-    },
-    "log.skipped": {"pl": "{fmt}: pominięto ({reason})", "en": "{fmt}: skipped ({reason})"},
-    "log.failed": {"pl": "{fmt}: BŁĄD {error}", "en": "{fmt}: ERROR {error}"},
-    "log.waiting": {
-        "pl": "Garmin ogranicza zapytania, czekam {seconds} s…",
-        "en": "Garmin is limiting requests, waiting {seconds} s…",
-    },
-    "reason.already_downloaded": {"pl": "już pobrano", "en": "already downloaded"},
-    "reason.exists_on_disk": {"pl": "plik już jest w folderze", "en": "file already in folder"},
-    "reason.no_gps": {"pl": "brak GPS", "en": "no GPS"},
-    "reason.no_file": {"pl": "brak pliku", "en": "no file"},
-    "reason.local_only": {
-        "pl": "konwersja lokalna – wkrótce",
-        "en": "local conversion – coming soon",
-    },
+    "log.saved": "{fmt}: saved {file}",
+    "log.saved_substitute": "{fmt}: no FIT on Garmin, original upload saved as {file}",
+    "log.skipped": "{fmt}: skipped ({reason})",
+    "log.failed": "{fmt}: ERROR {error}",
+    "log.waiting": "Garmin is limiting requests, waiting {seconds} s…",
+    "reason.already_downloaded": "already downloaded",
+    "reason.exists_on_disk": "file already in folder",
+    "reason.no_gps": "no GPS",
+    "reason.no_file": "no file",
+    "reason.local_only": "local conversion — soon",
+    # downloaded files (F17)
+    "files.folder": "Folder: {folder}",
+    "files.offline_note": "Works offline · type read from the file name",
+    "files.refresh": "Refresh",
+    "files.empty": "No FitBatch files in this folder yet.",
+    "files.col.activity": "Activity",
+    "files.col.file": "File",
+    "files.col.formats": "Formats",
+    "files.count": "{count} activities",
     # settings (F21)
-    "settings.language": {"pl": "Język", "en": "Language"},
-    "settings.default_folder": {"pl": "Domyślny folder", "en": "Default folder"},
-    "settings.default_formats": {"pl": "Domyślne formaty", "en": "Default formats"},
-    "settings.restart_hint": {
-        "pl": "Zmiana języka obowiązuje od razu po zapisaniu.",
-        "en": "The language changes as soon as you save.",
-    },
+    "settings.theme": "Theme",
+    "settings.theme_hint": "Dark, light or follow the system · remembered on this computer",
+    "settings.folder": "Default folder",
+    "settings.folder_hint": "Where downloaded files go",
+    "settings.formats": "Default formats",
+    "settings.formats_hint": "Pre-selected on the Export screen",
+    "settings.delay": "Request pace",
+    "settings.delay_hint": "Pause between downloads protects your account from lockouts",
+    "settings.saved": "Settings saved.",
 }
+
+_TEXTS: dict[str, dict[str, str]] = {"en": _EN}
 
 
 class Translator:
     def __init__(self, language: str = DEFAULT_LANGUAGE) -> None:
-        self.language = language
+        self.language = language if language in _TEXTS else DEFAULT_LANGUAGE
 
     def __call__(self, key: str, **params: Any) -> str:
-        entry = _TEXTS.get(key)
-        if entry is None:
-            return key
-        text = entry.get(self.language) or entry.get("en") or key
+        text = _TEXTS[self.language].get(key) or _EN.get(key) or key
         return text.format(**params) if params else text
 
 
 def all_keys() -> list[str]:
-    return list(_TEXTS)
+    return list(_EN)
 
 
 def missing_translations() -> list[tuple[str, str]]:
-    return [(k, lang) for k, v in _TEXTS.items() for lang in ("pl", "en") if not v.get(lang)]
+    """Keys a non-English language lacks (empty until translations are added, D18)."""
+    return [(k, lang) for lang, texts in _TEXTS.items() for k in _EN if not texts.get(k)]

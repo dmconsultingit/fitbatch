@@ -33,3 +33,11 @@ def test_download_respects_declared_formats(activity: Activity) -> None:
 def test_capabilities_are_declared() -> None:
     adapter = FakeAdapter(capabilities=[Capability.LIST_ACTIVITIES])
     assert Capability.DOWNLOAD not in adapter.capabilities
+
+
+def test_fake_adapter_category_hint(activity: Activity) -> None:
+    adapter = FakeAdapter([activity])
+    start, end = datetime(2026, 9, 1, tzinfo=UTC), datetime(2026, 9, 30, tzinfo=UTC)
+    assert adapter.list_activities(start, end, categories=["cycling"]) == [activity]
+    assert adapter.list_activities(start, end, categories=["running"]) == []
+    assert adapter.list_calls == [["cycling"], ["running"]]

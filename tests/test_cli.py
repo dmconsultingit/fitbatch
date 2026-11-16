@@ -29,4 +29,4 @@ def test_gui_module_imports() -> None:
     from fitbatch.ui import app
 
     assert callable(app.main)
-    assert hasattr(app.FitBatchApp, "show_main")
+    assert hasattr(app.FitBatchApp, "render")

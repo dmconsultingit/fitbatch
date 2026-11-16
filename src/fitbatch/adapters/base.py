@@ -54,8 +54,14 @@ class PlatformAdapter(Protocol):
         """Identifier of the connected account, used as part of the registry key (N14)."""
         ...
 
-    def list_activities(self, start: datetime, end: datetime) -> Sequence[Activity]:
-        """Activities that started between ``start`` and ``end`` (both timezone-aware)."""
+    def list_activities(
+        self, start: datetime, end: datetime, categories: Sequence[str] | None = None
+    ) -> Sequence[Activity]:
+        """Activities that started between ``start`` and ``end`` (both timezone-aware).
+
+        ``categories`` is a hint to narrow the list on the platform side; adapters may ignore it,
+        so callers always apply their own filter as well.
+        """
         ...
 
     def download(self, activity: Activity, fmt: ExportFormat) -> list[DownloadedFile]:

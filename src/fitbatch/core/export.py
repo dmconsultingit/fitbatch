@@ -74,6 +74,14 @@ class Progress(ExportEvent):
     activity: Activity
 
 
+@dataclass(frozen=True, slots=True)
+class Downloading(ExportEvent):
+    """Sent right before a network download, so the UI can show what is happening now."""
+
+    activity: Activity
+    fmt: ExportFormat
+
+
 @dataclass(slots=True)
 class ExportSummary:
     saved: int = 0
@@ -120,6 +128,28 @@ def _is_in(path: Path, folder: Path) -> bool:
         return False
 
 
+# D22: <target>/<Platform>/export/<format>/ — one folder per platform and file format.
+PLATFORM_FOLDERS = {"garmin": "Garmin"}
+FORMAT_FOLDERS = {
+    ExportFormat.FIT: "fit",
+    ExportFormat.TCX: "tcx",
+    ExportFormat.GPX: "gpx",
+    ExportFormat.KML: "kml",
+    ExportFormat.SPLITS_CSV: "csv",
+}
+
+
+def export_root(out_dir: Path, platform_id: str) -> Path:
+    """``<target>/Garmin/export`` for platform ``garmin``."""
+    folder = PLATFORM_FOLDERS.get(platform_id, safe_filename(platform_id.capitalize()))
+    return out_dir / folder / "export"
+
+
+def format_dir(out_dir: Path, platform_id: str, fmt: ExportFormat) -> Path:
+    """``<target>/Garmin/export/fit`` — where files of one format are saved."""
+    return export_root(out_dir, platform_id) / FORMAT_FOLDERS[fmt]
+
+
 def default_file_name(activity: Activity, extension: str, index: int = 0) -> str:
     """F10 default: RRRR-MM-DD_type_ID.ext (local date, D8), Windows-safe."""
     local_day = activity.start_time.astimezone().date().isoformat()
@@ -155,7 +185,7 @@ class Exporter:
         activities: Sequence[Activity],
         cancel: threading.Event | None = None,
     ) -> ExportSummary:
-        summary = ExportSummary(out_dir=request.out_dir)
+        summary = ExportSummary(out_dir=export_root(request.out_dir, self._adapter.platform_id))
         request.out_dir.mkdir(parents=True, exist_ok=True)
         total = len(activities)
         log.info(
@@ -203,16 +233,18 @@ class Exporter:
         if fmt not in self._adapter.remote_formats:
             # Local conversion from FIT comes in a later stage.
             return self._skip(summary, activity, fmt, "local_only")
+        folder = format_dir(request.out_dir, self._adapter.platform_id, fmt)
         # Skip only when the file really is in the chosen folder: another folder, or a file the
-        # user deleted, means download again (F10; open question "registry vs disk").
+        # user deleted, means download again (D17).
         recorded = self._registry.downloaded_path(activity, fmt)
-        if not request.overwrite and recorded is not None and _is_in(recorded, request.out_dir):
+        if not request.overwrite and recorded is not None and _is_in(recorded, folder):
             return self._skip(summary, activity, fmt, "already_downloaded")
-        target = request.out_dir / default_file_name(activity, f".{fmt.value}")
+        target = folder / default_file_name(activity, f".{fmt.value}")
         if not request.overwrite and target.exists():
             self._registry.mark_downloaded(activity, fmt, target)
             return self._skip(summary, activity, fmt, "exists_on_disk")
 
+        self._emit(Downloading(activity, fmt))
         try:
             files = self._download_with_rate_limit(activity, fmt)
         except NoFileError:
@@ -228,7 +260,7 @@ class Exporter:
         finally:
             self._sleep(self._delay_s)  # N4: moderate request rate
 
-        paths = self._save(request.out_dir, activity, fmt, files)
+        paths = self._save(folder, activity, fmt, files)
         self._registry.mark_downloaded(activity, fmt, paths[0])
         summary.saved += 1
         for path, file in zip(paths, files, strict=True):
@@ -250,12 +282,13 @@ class Exporter:
 
     @staticmethod
     def _save(
-        out_dir: Path, activity: Activity, fmt: ExportFormat, files: list[DownloadedFile]
+        folder: Path, activity: Activity, fmt: ExportFormat, files: list[DownloadedFile]
     ) -> list[Path]:
+        """Save into the format's folder; a substitute original (GPX upload) stays there too."""
         paths: list[Path] = []
         for index, file in enumerate(files):
             extension = f".{fmt.value}" if fmt is not ExportFormat.FIT else file.extension
-            path = out_dir / default_file_name(activity, extension, index)
+            path = folder / default_file_name(activity, extension, index)
             atomic_write(path, file.data)  # N3: no half-written files
             paths.append(path)
         return paths

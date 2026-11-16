@@ -6,6 +6,7 @@ from collections.abc import Callable, Iterable, Sequence
 from datetime import datetime
 
 from fitbatch.adapters.base import AdapterError
+from fitbatch.core.activity_types import describe
 from fitbatch.core.models import Activity, Capability, DownloadedFile, ExportFormat
 
 FailureHook = Callable[[Activity, ExportFormat], None]
@@ -32,6 +33,7 @@ class FakeAdapter:
         self._account = account
         self._fail_with = fail_with
         self.download_calls: list[tuple[str, ExportFormat]] = []
+        self.list_calls: list[list[str] | None] = []
 
     @property
     def platform_id(self) -> str:
@@ -53,8 +55,17 @@ class FakeAdapter:
     def account(self) -> str:
         return self._account
 
-    def list_activities(self, start: datetime, end: datetime) -> Sequence[Activity]:
-        return [a for a in self._activities if start <= a.start_time <= end]
+    def list_activities(
+        self, start: datetime, end: datetime, categories: Sequence[str] | None = None
+    ) -> Sequence[Activity]:
+        self.list_calls.append(list(categories) if categories else None)
+        wanted = set(categories or [])
+        return [
+            a
+            for a in self._activities
+            if start <= a.start_time <= end
+            and (not wanted or describe(a.type_key).category in wanted)
+        ]
 
     def download(self, activity: Activity, fmt: ExportFormat) -> list[DownloadedFile]:
         if fmt not in self._remote_formats:

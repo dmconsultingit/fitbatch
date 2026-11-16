@@ -5,8 +5,10 @@ Kept separate from the widgets so it can be tested without a window (N15).
 
 from __future__ import annotations
 
+from collections.abc import Sequence
 from datetime import date, datetime, time, timedelta
 
+from fitbatch.core.activity_types import display_name
 from fitbatch.core.export import (
     ExportEvent,
     FileFailed,
@@ -14,7 +16,7 @@ from fitbatch.core.export import (
     FileSkipped,
     Waiting,
 )
-from fitbatch.core.models import Activity
+from fitbatch.core.models import Activity, ExportFormat
 from fitbatch.i18n import Translator
 
 EARLIEST = date(1990, 1, 1)
@@ -77,13 +79,41 @@ def format_distance(meters: float | None) -> str:
     return f"{meters / 1000:.2f} km"
 
 
+def local_time(activity: Activity) -> str:
+    """Start time in this computer's time zone (D8)."""
+    return activity.start_time.astimezone().strftime("%Y-%m-%d %H:%M")
+
+
 def activity_row(activity: Activity) -> str:
-    """F8 list columns: date, name, type, time, distance."""
-    when = activity.start_time.astimezone().strftime("%Y-%m-%d %H:%M")
+    """One-line summary for the log: date, name, type, time, distance (F8)."""
     return (
-        f"{when} · {activity.name or '–'} · {activity.type_key} · "
+        f"{local_time(activity)} · {activity.name or '–'} · {display_name(activity.type_key)} · "
         f"{format_duration(activity.duration_s)} · {format_distance(activity.distance_m)}"
     )
+
+
+def total_distance_km(activities: Sequence[Activity]) -> str:
+    meters = sum(a.distance_m or 0 for a in activities)
+    return f"{meters / 1000:,.1f}"
+
+
+def files_to_download(activities: Sequence[Activity], formats: Sequence[ExportFormat]) -> int:
+    """Upper bound shown before the download: GPX/KML only for activities with GPS."""
+    return sum(1 for a in activities for f in formats if a.has_gps or not f.needs_gps)
+
+
+def filter_summary(
+    include: list[str], exclude: list[str], chosen_types: int, all_types: int, tr: Translator
+) -> str:
+    """Collapsed filter card header, e.g. "name has “E1” · without “Zwift” · 4 types"."""
+    parts: list[str] = []
+    if include:
+        parts.append(tr("filters.summary.include", value=", ".join(include)))
+    if exclude:
+        parts.append(tr("filters.summary.exclude", value=", ".join(exclude)))
+    if all_types and chosen_types < all_types:
+        parts.append(tr("filters.summary.types", count=chosen_types))
+    return " · ".join(parts) or tr("filters.none_active")
 
 
 def format_event(event: ExportEvent, tr: Translator) -> str | None:

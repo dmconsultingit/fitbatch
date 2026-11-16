@@ -190,16 +190,46 @@ class GarminEmailAdapter:
 
     # --- listing ------------------------------------------------------------------------------
 
-    def list_activities(self, start: datetime, end: datetime) -> Sequence[Activity]:
+    def list_activities(
+        self, start: datetime, end: datetime, categories: Sequence[str] | None = None
+    ) -> Sequence[Activity]:
+        """Activities in the range; ``categories`` asks Garmin to filter by top-level category.
+
+        Garmin filters server-side only by category (not by subtype); if it refuses a category the
+        whole range is fetched instead and the caller's local filter does the rest.
+        """
         query_start = (start - self.LIST_MARGIN).date().isoformat()
         query_end = (end + self.LIST_MARGIN).date().isoformat()
-        with _translate_errors("Activity list"):
-            raw = self._client.get_activities_by_date(query_start, query_end, None)
+        raw: list[dict[str, Any]] = []
+        try:
+            for category in categories or [None]:
+                with _translate_errors("Activity list"):
+                    raw.extend(
+                        self._client.get_activities_by_date(query_start, query_end, category) or []
+                    )
+        except (AuthenticationError, RateLimitError):
+            raise
+        except AdapterError:
+            if not categories:
+                raise
+            log.info("Category filter refused by Garmin; listing the whole range instead")
+            with _translate_errors("Activity list"):
+                raw = self._client.get_activities_by_date(query_start, query_end, None) or []
         self.persist_session()
-        activities = [a for a in (self._to_activity(r) for r in raw or []) if a is not None]
+        unique = {str(r.get("activityId")): r for r in raw}
+        activities = [a for a in (self._to_activity(r) for r in unique.values()) if a is not None]
         return sorted(
             (a for a in activities if start <= a.start_time <= end), key=lambda a: a.start_time
         )
+
+    def activity_types(self) -> list[dict[str, Any]]:
+        """Garmin's global activity type catalogue (no personal data)."""
+        with _translate_errors("Activity types"):
+            types = self._client.get_activity_types()
+        self.persist_session()
+        if not isinstance(types, list):
+            raise AdapterError("Unexpected activity type list from Garmin")
+        return types
 
     def _to_activity(self, raw: dict[str, Any]) -> Activity | None:
         start = _parse_gmt(raw.get("startTimeGMT")) or _parse_local(raw.get("startTimeLocal"))

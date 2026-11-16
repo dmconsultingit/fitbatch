@@ -15,6 +15,8 @@ from fitbatch.core.export import (
     FileSkipped,
     Waiting,
     default_file_name,
+    export_root,
+    format_dir,
 )
 from fitbatch.core.filters import ActivityFilter
 from fitbatch.core.models import Activity, ExportFormat
@@ -48,11 +50,12 @@ def test_saves_files_and_registers_them(tmp_path: Path, registry, activity: Acti
     req = request_for(tmp_path, ExportFormat.FIT, ExportFormat.SPLITS_CSV)
     summary = exporter.run(req, exporter.plan(req))
     assert summary.saved == 2
-    saved = sorted(p.name for p in req.out_dir.iterdir())
     day = activity.start_time.astimezone().date().isoformat()
-    assert saved == [
-        f"{day}_mountain_biking_123.fit",
-        f"{day}_mountain_biking_123.splits.csv",
+    root = req.out_dir / "Fake" / "export"
+    assert summary.out_dir == root == export_root(req.out_dir, "fake")
+    assert sorted(p.name for p in (root / "fit").iterdir()) == [f"{day}_mountain_biking_123.fit"]
+    assert sorted(p.name for p in (root / "csv").iterdir()) == [
+        f"{day}_mountain_biking_123.splits.csv"
     ]
     assert registry.is_downloaded(activity, ExportFormat.FIT)
     assert sum(isinstance(e, FileSaved) for e in events) == 2
@@ -81,8 +84,9 @@ def test_existing_file_on_disk_is_skipped_and_registered(
     tmp_path: Path, registry, activity: Activity
 ) -> None:
     req = request_for(tmp_path)
-    req.out_dir.mkdir(parents=True)
-    (req.out_dir / default_file_name(activity, ".fit")).write_bytes(b"old")
+    folder = format_dir(req.out_dir, "fake", ExportFormat.FIT)
+    folder.mkdir(parents=True)
+    (folder / default_file_name(activity, ".fit")).write_bytes(b"old")
     exporter, _, _ = make_exporter(FakeAdapter([activity]), registry)
     summary = exporter.run(req, [activity])
     assert summary.skipped_by_reason == {"exists_on_disk": 1}
@@ -182,7 +186,8 @@ def test_new_folder_downloads_again(tmp_path: Path, registry, activity: Activity
     )
     assert summary.saved == 1
     assert len(adapter.download_calls) == 2
-    assert (tmp_path / "b" / default_file_name(activity, ".fit")).exists()
+    folder = format_dir(tmp_path / "b", "fake", ExportFormat.FIT)
+    assert (folder / default_file_name(activity, ".fit")).exists()
 
 
 def test_deleted_file_is_downloaded_again(tmp_path: Path, registry, activity: Activity) -> None:
@@ -190,7 +195,9 @@ def test_deleted_file_is_downloaded_again(tmp_path: Path, registry, activity: Ac
     exporter, _, _ = make_exporter(adapter, registry)
     req = request_for(tmp_path)
     exporter.run(req, [activity])
-    (req.out_dir / default_file_name(activity, ".fit")).unlink()
+    (
+        format_dir(req.out_dir, "fake", ExportFormat.FIT) / default_file_name(activity, ".fit")
+    ).unlink()
     summary = exporter.run(req, [activity])
     assert summary.saved == 1
 
@@ -205,3 +212,21 @@ def test_back_to_first_folder_with_file_present_is_skipped(
     summary = exporter.run(first, [activity])
     assert summary.saved == 0
     assert summary.skipped_by_reason == {"exists_on_disk": 1}
+
+
+def test_downloading_event_comes_before_save(tmp_path: Path, registry, activity: Activity) -> None:
+    from fitbatch.core.export import Downloading
+
+    exporter, events, _ = make_exporter(FakeAdapter([activity]), registry)
+    exporter.run(request_for(tmp_path, ExportFormat.FIT), [activity])
+    kinds = [type(e).__name__ for e in events]
+    assert kinds.index("Downloading") < kinds.index("FileSaved")
+    assert isinstance(events[kinds.index("Downloading")], Downloading)
+
+
+def test_folder_layout_per_platform_and_format(tmp_path: Path) -> None:
+    assert (
+        format_dir(tmp_path, "garmin", ExportFormat.FIT) == tmp_path / "Garmin" / "export" / "fit"
+    )
+    assert format_dir(tmp_path, "garmin", ExportFormat.SPLITS_CSV).name == "csv"
+    assert export_root(tmp_path, "suunto") == tmp_path / "Suunto" / "export"

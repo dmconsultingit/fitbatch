@@ -47,3 +47,44 @@ def test_rate_limit_at_login_locks_immediately(services: AppServices) -> None:
 def test_successful_login_then_saved_session(services: AppServices) -> None:
     services.login_garmin_email("me@example.com", "pw", lambda: "")
     assert services.connect_saved_garmin_email() is not None
+
+
+class CatalogAdapter:
+    def __init__(self, types: list[dict] | Exception) -> None:
+        self._types = types
+        self.calls = 0
+
+    def activity_types(self) -> list[dict]:
+        self.calls += 1
+        if isinstance(self._types, Exception):
+            raise self._types
+        return self._types
+
+
+NEW_TYPES = [
+    {"typeId": 17, "typeKey": "all", "parentTypeId": None},
+    {"typeId": 2, "typeKey": "cycling", "parentTypeId": 17},
+    {"typeId": 901, "typeKey": "hover_biking", "parentTypeId": 2},
+]
+
+
+def test_catalog_refreshed_once_a_week(services: AppServices) -> None:
+    from fitbatch.core.activity_types import ActivityCatalog, describe, use_catalog
+
+    adapter = CatalogAdapter(NEW_TYPES)
+    try:
+        assert services.refresh_catalog(adapter) is True
+        assert describe("hover_biking").category == "cycling"
+        assert services.refresh_catalog(adapter) is False  # fresh copy on disk
+        assert adapter.calls == 1
+        week_later = services.catalog_file.stat().st_mtime + 8 * 24 * 3600
+        assert services.refresh_catalog(adapter, clock=lambda: week_later) is True
+    finally:
+        use_catalog(ActivityCatalog.bundled())
+
+
+def test_catalog_refresh_failure_keeps_current(services: AppServices) -> None:
+    from fitbatch.adapters.base import AdapterError
+
+    assert services.refresh_catalog(CatalogAdapter(AdapterError("down"))) is False
+    assert not services.catalog_file.exists()

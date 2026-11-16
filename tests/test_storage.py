@@ -53,9 +53,12 @@ def test_settings_roundtrip_and_defaults(tmp_path: Path) -> None:
 
 def test_settings_ignore_invalid_values(tmp_path: Path) -> None:
     path = tmp_path / "settings.json"
-    path.write_text('{"language": "xx", "formats": ["exe"], "unknown": 1}', encoding="utf-8")
+    path.write_text(
+        '{"language": "xx", "theme": "neon", "formats": ["exe"], "unknown": 1}', encoding="utf-8"
+    )
     loaded = Settings.load(path)
-    assert loaded.language == "pl"
+    assert loaded.language == "en"
+    assert loaded.theme == "dark"
     assert loaded.formats == ["fit"]
 
 
