@@ -1,17 +1,32 @@
+<p align="center">
+  <picture>
+    <source media="(prefers-color-scheme: dark)" srcset="brand/fitbatch-horizontal-on-dark.svg">
+    <img src="brand/fitbatch-horizontal-on-light.svg" alt="FitBatch" width="360">
+  </picture>
+</p>
+
 # FitBatch
 
 **Bulk download & upload of your training data. For Garmin Connect.**
 
 FitBatch is a free, open-source, portable desktop app for amateur athletes, coaches and anyone who wants their raw training files on their own disk: for Excel, Python, GoldenCheetah or AI tools.
 
-> **Status:** early development (0.0.1). Nothing works yet. Watch the repository to follow progress.
+> **Status:** first test version (0.1.0 beta 1). Bulk download from Garmin Connect works; upload is planned.
 
-## Planned features
+## Features
 
-- Bulk download of activities from Garmin Connect (.FIT, GPX, TCX)
-- Upload of workouts and training plans back to Garmin Connect
-- Portable: no installation required (Windows first, then Linux and macOS)
+- Bulk download of activities from Garmin Connect (original .FIT, GPX, TCX, KML, splits as CSV), filtered by date and activity type
+- Already downloaded files are skipped, so you can run it again to fetch only new activities
+- Portable: no installation, one file for Windows and an app for macOS (Apple Silicon and Intel)
 - Graphical interface, plus a command-line mode for technical users
+- Planned: upload of workouts and training plans back to Garmin Connect
+
+## Download
+
+Get the latest version from [Releases](https://github.com/dmconsultingit/fitbatch/releases):
+
+- **Windows 10/11:** `FitBatch.exe`. If SmartScreen warns you, click *More info → Run anyway*.
+- **macOS:** `FitBatch-macOS-arm64.zip` (Apple Silicon, M1 and newer) or `FitBatch-macOS-intel.zip`. Unzip, move FitBatch to Applications and open it. The first time, macOS blocks the app because it is not signed by an Apple developer yet: go to *System Settings → Privacy & Security* and click *Open Anyway*.
 
 ## Installation (development)
 

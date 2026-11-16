@@ -135,3 +135,19 @@ def test_sidebar_groups_platforms(app: FitBatchApp) -> None:
     assert [t for t in texts if t in {"GARMIN", "SUUNTO", "WAHOO"}] == ["GARMIN", "SUUNTO", "WAHOO"]
     assert texts.count("soon") == 3  # Import, Suunto, Wahoo: one wording everywhere
     assert "coming soon" not in texts
+
+
+def test_sidebar_logo_has_no_platform_slogan(app: FitBatchApp) -> None:
+    app.go("export")
+    texts: list[str] = []
+
+    def collect(control: Any) -> None:
+        value = getattr(control, "value", None)
+        if isinstance(value, str):
+            texts.append(value)
+        for child in _children(control):
+            collect(child)
+
+    collect(app.page.controls[0].controls[0])
+    assert not any("·" in t or "Train" in t for t in texts[:3])  # no slogan by the logo
+    assert not any("Garmin Connect" in t for t in texts)

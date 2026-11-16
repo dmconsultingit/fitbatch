@@ -4,7 +4,7 @@ build-backend = "hatchling.build"
 
 [project]
 name = "fitbatch"
-version = "0.0.1"
+version = "0.1.0b1"
 description = "Bulk download & upload of your training data. For Garmin Connect."
 readme = "README.md"
 # python-garminconnect (planned email + password adapter) requires Python 3.12+.
@@ -20,6 +20,7 @@ classifiers = [
     "Intended Audience :: End Users/Desktop",
     "Operating System :: Microsoft :: Windows :: Windows 10",
     "Operating System :: Microsoft :: Windows :: Windows 11",
+    "Operating System :: MacOS",
     "Programming Language :: Python :: 3",
     "Programming Language :: Python :: 3 :: Only",
     "Programming Language :: Python :: 3.12",
@@ -32,6 +33,8 @@ dependencies = [
     "platformdirs>=4.3",
     # Pinned on purpose (N2): unofficial client, check releases and advisories before upgrading.
     "garminconnect==0.3.20",
+    # Session storage outside Windows: macOS Keychain / Linux Secret Service (Windows uses DPAPI).
+    "keyring>=25; sys_platform != 'win32'",
 ]
 
 [project.optional-dependencies]
@@ -41,7 +44,8 @@ dev = [
     "build>=1.2",
     "twine>=6",
     "flet[cli]>=1.1,<2",
-    "pyinstaller>=6.16",
+    "pyinstaller>=6.16,<7",   # 7.0 drops one-file macOS .app bundles, which flet pack builds
+    "keyring>=25",   # tests of the macOS/Linux secret store run on Windows too
 ]
 
 [project.urls]

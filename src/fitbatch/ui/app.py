@@ -9,6 +9,8 @@ from __future__ import annotations
 
 import logging
 import os
+import shutil
+import subprocess  # noqa: S404 - only to open a folder in the system file manager
 import sys
 import threading
 from dataclasses import dataclass, field
@@ -59,9 +61,12 @@ from fitbatch.ui.logic import (
     split_phrases,
 )
 from fitbatch.ui.theme import (
+    APP_ICON,
     ASSETS_DIR,
     BODY,
     BODY_SEMIBOLD,
+    BRAND_ORANGE,
+    BRAND_SYMBOL,
     DISPLAY,
     FONTS,
     MONO,
@@ -80,7 +85,6 @@ SIDEBAR_WIDTH = 236
 COLS = (44, 150, None, 220, 120)  # table (F8): checkbox, date, name, type, status
 PAGE_SIZE = 50  # activities per table page: keeps the window fast with thousands of rows (N6)
 MAX_SERVER_CATEGORIES = 4  # more chosen categories than this: list everything, filter locally
-LOGO_FILE = "logo.png"  # optional: put the final logo in ui/assets/ and it replaces the wordmark
 
 
 @dataclass(slots=True)
@@ -156,6 +160,8 @@ class FitBatchApp:
         page.window.height = 860
         page.window.min_width = 1000
         page.window.min_height = 640
+        if sys.platform == "win32":  # title bar and taskbar; macOS takes the icon from the bundle
+            page.window.icon = str(ASSETS_DIR / APP_ICON)
         page.padding = 0
         page.on_platform_brightness_change = lambda _: self.render()
         if self.services.garmin_email.has_saved_session():
@@ -348,28 +354,22 @@ class FitBatchApp:
         )
 
     def _logo(self) -> ft.Control:
-        """The final logo when ``ui/assets/logo.png`` exists, otherwise the interim wordmark."""
-        p, k = self.p, self.k
-        if (ASSETS_DIR / LOGO_FILE).is_file():
-            return ft.Image(
-                src=LOGO_FILE, height=44, fit=ft.BoxFit.CONTAIN, semantics_label="FitBatch"
-            )
-        mark = ft.Container(
-            ft.Icon(ft.Icons.BAR_CHART_ROUNDED, color=p.on_primary, size=22),
-            width=36,
-            height=36,
-            border_radius=9,
-            bgcolor=p.primary,
-            alignment=ft.Alignment.CENTER,
+        """Brand symbol (SVG, both themes) + "Fit" in text colour, "Batch" in brand orange."""
+        p = self.p
+        mark = ft.Image(
+            src=BRAND_SYMBOL, width=40, height=40, fit=ft.BoxFit.CONTAIN, semantics_label="FitBatch"
         )
-        words = ft.Column(
-            [
-                ft.Text("FitBatch", font_family=DISPLAY, size=24, color=p.text),
-                k.text("for Garmin Connect", 11, muted=True),
+        wordmark = ft.Text(
+            spans=[
+                ft.TextSpan("Fit", style=ft.TextStyle(color=p.text)),
+                ft.TextSpan("Batch", style=ft.TextStyle(color=BRAND_ORANGE)),
             ],
-            spacing=0,
+            font_family=DISPLAY,
+            size=26,
         )
-        return ft.Row([mark, words], spacing=10)
+        # No slogan for now: the mark carries sport + data + batch; the description lives in
+        # About, the README and the website.
+        return ft.Row([mark, wordmark], spacing=10, vertical_alignment=ft.CrossAxisAlignment.CENTER)
 
     def _support_card(self) -> ft.Container:
         """Voluntary support (buycoffee.to / Ko-fi style); the link lives in ``project.py``."""
@@ -1901,7 +1901,13 @@ class FitBatchApp:
         self.page.show_dialog(
             ft.AlertDialog(
                 bgcolor=self.p.surface,
-                title=k.title(f"{APP_TITLE} {__version__}", 26),
+                title=ft.Row(
+                    [
+                        ft.Image(src=BRAND_SYMBOL, width=36, height=36),
+                        k.title(f"{APP_TITLE} {__version__}", 26),
+                    ],
+                    spacing=10,
+                ),
                 content=ft.Column(
                     [
                         k.text(tr("app.tagline")),
@@ -1924,8 +1930,16 @@ class FitBatchApp:
 
 
 def open_in_explorer(folder: Path) -> None:
-    if sys.platform == "win32" and folder.exists():
+    """Show the user's own export folder in Explorer / Finder / the Linux file manager."""
+    if not folder.exists():
+        return
+    if sys.platform == "win32":
         os.startfile(folder)  # noqa: S606 - opens the user's own export folder in Explorer
+        return
+    opener = "open" if sys.platform == "darwin" else "xdg-open"
+    tool = shutil.which(opener)
+    if tool:
+        subprocess.Popen([tool, str(folder)])  # noqa: S603 - fixed tool, path chosen by the user
 
 
 def main() -> None:

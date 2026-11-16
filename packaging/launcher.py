@@ -1,4 +1,4 @@
-"""Entry point used when packaging FitBatch into a Windows executable."""
+"""Entry point used when packaging FitBatch (Windows .exe, macOS .app)."""
 
 from fitbatch.cli import main
 

@@ -9,7 +9,9 @@ from fitbatch.storage.paths import default_paths
 from fitbatch.storage.secrets import (
     DpapiSecretStore,
     InMemorySecretStore,
+    KeyringSecretStore,
     SecretStoreError,
+    default_secret_store,
 )
 
 
@@ -97,3 +99,63 @@ def test_dpapi_rejects_tampered_file(tmp_path: Path) -> None:
     path.write_bytes(bytes(data))
     with pytest.raises(SecretStoreError):
         store.load("garmin", "email")
+
+
+class _FakeKeychain:
+    """Stands in for a keyring backend (macOS Keychain) in tests."""
+
+    def __init__(self, fail: bool = False) -> None:
+        self.items: dict[tuple[str, str], str] = {}
+        self.fail = fail
+
+    def set_password(self, service: str, user: str, value: str) -> None:
+        if self.fail:
+            raise RuntimeError("keychain locked")
+        self.items[(service, user)] = value
+
+    def get_password(self, service: str, user: str) -> str | None:
+        if self.fail:
+            raise RuntimeError("keychain locked")
+        return self.items.get((service, user))
+
+    def delete_password(self, service: str, user: str) -> None:
+        del self.items[(service, user)]
+
+
+def test_keyring_store_roundtrip() -> None:
+    keychain = _FakeKeychain()
+    store = KeyringSecretStore(keychain)
+    secret = b'{"token": "abc\x00\xff"}'
+    store.save("garmin", "email", secret)
+    assert ("FitBatch", "garmin_email") in keychain.items
+    assert store.load("garmin", "email") == secret
+    store.delete("garmin", "email")
+    assert store.load("garmin", "email") is None
+    store.delete("garmin", "email")  # deleting twice is fine
+
+
+def test_keyring_store_rejects_path_tricks() -> None:
+    with pytest.raises(SecretStoreError):
+        KeyringSecretStore(_FakeKeychain()).save("garmin", "../x", b"x")
+
+
+def test_keyring_store_wraps_errors_without_secret() -> None:
+    store = KeyringSecretStore(_FakeKeychain(fail=True))
+    with pytest.raises(SecretStoreError) as info:
+        store.save("garmin", "email", b"super-secret-token")
+    assert "super-secret-token" not in str(info.value)
+    with pytest.raises(SecretStoreError):
+        store.load("garmin", "email")
+
+
+def test_keyring_store_detects_damaged_value() -> None:
+    keychain = _FakeKeychain()
+    keychain.items[("FitBatch", "garmin_email")] = "not base64!"
+    with pytest.raises(SecretStoreError):
+        KeyringSecretStore(keychain).load("garmin", "email")
+
+
+def test_default_secret_store_per_platform(tmp_path: Path) -> None:
+    store = default_secret_store(tmp_path)
+    expected = DpapiSecretStore if sys.platform == "win32" else KeyringSecretStore
+    assert isinstance(store, expected)

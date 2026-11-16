@@ -2,14 +2,16 @@
 
 On Windows secrets are encrypted with DPAPI, bound to the current Windows user on this
 computer (D11): copied to another computer they cannot be decrypted and the user logs in again.
+On macOS (and Linux) they go to the system keychain through ``keyring``.
 """
 
 from __future__ import annotations
 
+import base64
 import re
 import sys
 from pathlib import Path
-from typing import Protocol
+from typing import Any, Protocol
 
 from fitbatch.storage.files import atomic_write
 
@@ -82,10 +84,59 @@ class DpapiSecretStore:
         self._path(platform, method).unlink(missing_ok=True)
 
 
+class KeyringSecretStore:
+    """The operating system's credential store via ``keyring`` (macOS Keychain, Linux Secret
+    Service). Secrets are kept as base64 text under the service name "FitBatch"."""
+
+    SERVICE = "FitBatch"
+
+    def __init__(self, backend: Any | None = None) -> None:
+        """``backend``: a keyring backend object (tests); by default the system keychain."""
+        if backend is None:
+            try:
+                import keyring as backend
+            except ImportError as exc:  # pragma: no cover - installed on macOS/Linux
+                raise SecretStoreError("Secure storage (keyring) is not available") from exc
+        self._keyring = backend
+
+    @staticmethod
+    def _user(platform: str, method: str) -> str:
+        _check(platform, method)
+        return f"{platform}_{method}"
+
+    def save(self, platform: str, method: str, secret: bytes) -> None:
+        value = base64.b64encode(secret).decode("ascii")
+        try:
+            self._keyring.set_password(self.SERVICE, self._user(platform, method), value)
+        except Exception as exc:
+            raise SecretStoreError("Could not save credentials in the system keychain") from exc
+
+    def load(self, platform: str, method: str) -> bytes | None:
+        try:
+            value = self._keyring.get_password(self.SERVICE, self._user(platform, method))
+        except Exception as exc:
+            raise SecretStoreError("Could not read credentials from the system keychain") from exc
+        if value is None:
+            return None
+        try:
+            return base64.b64decode(value, validate=True)
+        except (ValueError, TypeError) as exc:
+            raise SecretStoreError("Saved credentials are damaged") from exc
+
+    def delete(self, platform: str, method: str) -> None:
+        user = self._user(platform, method)
+        try:
+            if self._keyring.get_password(self.SERVICE, user) is not None:
+                self._keyring.delete_password(self.SERVICE, user)
+        except Exception as exc:
+            raise SecretStoreError("Could not delete credentials from the system keychain") from exc
+
+
 def default_secret_store(directory: Path) -> SecretStore:
+    """Windows: DPAPI files in the data folder. macOS/Linux: the system keychain."""
     if sys.platform == "win32":
         return DpapiSecretStore(directory)
-    raise SecretStoreError("Secure storage is not implemented for this operating system yet")
+    return KeyringSecretStore()
 
 
 # --- Windows DPAPI via ctypes (no extra dependency) -------------------------------------------

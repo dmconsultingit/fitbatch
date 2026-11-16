@@ -13,6 +13,11 @@ import flet as ft
 
 ASSETS_DIR = Path(__file__).parent / "assets"
 
+# Brand (logo kit in /brand; usage rules in brand/BRAND.md)
+BRAND_ORANGE = "#EA580C"  # one logo orange for both themes; >= 3:1 on both backgrounds
+BRAND_SYMBOL = "brand/fitbatch-symbol.svg"  # relative to ASSETS_DIR
+APP_ICON = "brand/fitbatch.ico"  # window, taskbar and .exe icon
+
 # Static OFL fonts bundled with the app (no network). One family per weight: Flutter does not
 # derive weights from a single file reliably.
 FONTS = {

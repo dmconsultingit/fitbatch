@@ -70,3 +70,13 @@ def test_palette_for_theme_setting() -> None:
 def test_bundled_fonts_exist() -> None:
     for relative in FONTS.values():
         assert (ASSETS_DIR / relative).is_file(), relative
+
+
+def test_brand_assets_exist_and_logo_orange_is_visible() -> None:
+    from fitbatch.ui.theme import APP_ICON, BRAND_ORANGE, BRAND_SYMBOL
+
+    assert (ASSETS_DIR / BRAND_SYMBOL).is_file()
+    assert (ASSETS_DIR / APP_ICON).read_bytes()[:4] == b"\x00\x00\x01\x00"  # ICO header
+    # graphics need >= 3:1 (WCAG 1.4.11) on both app backgrounds and surfaces
+    for background in (DARK.bg, DARK.surface, LIGHT.bg, LIGHT.surface):
+        assert contrast(BRAND_ORANGE, background) >= 3.0, background
