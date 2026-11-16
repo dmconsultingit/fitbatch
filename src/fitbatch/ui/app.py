@@ -46,6 +46,7 @@ from fitbatch.i18n import Translator
 from fitbatch.project import REPOSITORY_URL, SUPPORT_URL
 from fitbatch.services import AppServices, create_services
 from fitbatch.ui.components import Kit
+from fitbatch.ui.import_view import ImportScreen
 from fitbatch.ui.logic import (
     EARLIEST,
     SHORTCUTS,
@@ -144,6 +145,7 @@ class FitBatchApp:
         self.job = JobState()
         self.cancel_event: threading.Event | None = None
         self.last_job: tuple[ExportRequest, list[Activity]] | None = None
+        self.import_screen = ImportScreen(self)
 
     # ===== start-up and rendering =================================================================
 
@@ -213,6 +215,7 @@ class FitBatchApp:
             "connect": self._connect_view,
             "export": self._export_view,
             "files": self._files_view,
+            "import": self.import_screen.view,
             "accounts": self._accounts_view,
             "settings": self._settings_view,
         }
@@ -306,7 +309,7 @@ class FitBatchApp:
                 platform_header("Garmin", available=True),
                 nav("export", ft.Icons.DOWNLOAD_ROUNDED, tr("nav.export")),
                 nav("files", ft.Icons.FOLDER_OUTLINED, tr("nav.files")),
-                nav("import", ft.Icons.UPLOAD_ROUNDED, tr("nav.import"), disabled=True),
+                nav("import", ft.Icons.UPLOAD_ROUNDED, tr("nav.import")),
                 platform_header("Suunto", available=False),
                 platform_header("Wahoo", available=False),
                 ft.Container(ft.Divider(height=1, thickness=1, color=p.border), padding=8),
@@ -407,6 +410,7 @@ class FitBatchApp:
             "connect": tr("conn.title"),
             "export": tr("export.title"),
             "files": tr("nav.files"),
+            "import": tr("import.screen_title"),
             "accounts": tr("nav.accounts"),
             "settings": tr("nav.settings"),
         }

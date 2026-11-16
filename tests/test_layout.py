@@ -85,7 +85,7 @@ def app(tmp_path: Path) -> FitBatchApp:
     return application
 
 
-@pytest.mark.parametrize("screen", ["connect", "export", "files", "accounts", "settings"])
+@pytest.mark.parametrize("screen", ["connect", "export", "files", "import", "accounts", "settings"])
 def test_screens_have_no_layout_errors(app: FitBatchApp, screen: str) -> None:
     app.go(screen)
     assert _problems(app.page.controls[0]) == []
@@ -103,6 +103,26 @@ def test_export_with_types_open_and_list(app: FitBatchApp) -> None:
     assert _problems(app.page.controls[0]) == []
 
 
+def test_import_with_files_and_progress(app: FitBatchApp, tmp_path: Path) -> None:
+    from fitbatch.core.upload import Uploaded, UploadProgress, UploadSkipped
+
+    fit = bytes([14, 16, 0, 0, 0, 0, 0, 0]) + b".FIT" + b"\x00\x00data"
+    (tmp_path / "in").mkdir()
+    (tmp_path / "in" / "ride.fit").write_bytes(fit)
+    (tmp_path / "in" / "notes.gpx").write_bytes(b"not a gpx")
+    screen = app.import_screen
+    app.go("import")
+    screen._scan_worker([tmp_path / "in"], True)  # synchronously, as the worker thread would
+    assert len(screen.files) == 2
+    screen.job.visible = screen.job.running = True
+    screen._on_event(UploadProgress(1, 2, screen.files[0]))
+    screen._on_event(Uploaded(screen.files[0]))
+    screen._on_event(UploadSkipped(screen.files[1], "wrong_content"))
+    app.render()
+    assert _problems(app.page.controls[0]) == []
+    assert screen.job.uploaded == 1
+
+
 def test_scrolling_columns_have_no_expand_children(app: FitBatchApp) -> None:
     """Flutter cannot size an expand child inside a scrolling column (grey box)."""
 
@@ -115,7 +135,7 @@ def test_scrolling_columns_have_no_expand_children(app: FitBatchApp) -> None:
             issues += walk(child)
         return issues
 
-    for screen in ("connect", "export", "files", "accounts", "settings"):
+    for screen in ("connect", "export", "files", "import", "accounts", "settings"):
         app.go(screen)
         assert walk(app.page.controls[0]) == [], screen
 
@@ -133,7 +153,7 @@ def test_sidebar_groups_platforms(app: FitBatchApp) -> None:
 
     collect(app.page.controls[0].controls[0])  # the sidebar
     assert [t for t in texts if t in {"GARMIN", "SUUNTO", "WAHOO"}] == ["GARMIN", "SUUNTO", "WAHOO"]
-    assert texts.count("soon") == 3  # Import, Suunto, Wahoo: one wording everywhere
+    assert texts.count("soon") == 2  # Suunto, Wahoo: one wording everywhere
     assert "coming soon" not in texts
 
 

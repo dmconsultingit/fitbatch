@@ -25,6 +25,14 @@ class NoFileError(AdapterError):
     """The activity has no file in this format (e.g. added manually in Garmin Connect)."""
 
 
+class DuplicateError(AdapterError):
+    """Upload refused because the platform already has this activity (Garmin: HTTP 409)."""
+
+
+class InvalidFileError(AdapterError):
+    """Upload refused because the platform could not read the file."""
+
+
 @runtime_checkable
 class PlatformAdapter(Protocol):
     """One platform + one access method, e.g. Garmin Connect via email and password."""
@@ -68,5 +76,24 @@ class PlatformAdapter(Protocol):
         """Files of one activity in one of ``remote_formats``.
 
         Raises ``NoFileError`` when there is nothing to download in that format.
+        """
+        ...
+
+
+@runtime_checkable
+class UploadAdapter(Protocol):
+    """An adapter that can also upload activity files (``Capability.UPLOAD``, F18)."""
+
+    @property
+    def platform_id(self) -> str: ...
+
+    @property
+    def account(self) -> str: ...
+
+    def upload(self, file_name: str, data: bytes) -> None:
+        """Upload one activity file. ``file_name`` ends with .fit, .gpx or .tcx.
+
+        Raises ``DuplicateError`` when the platform already has the activity, ``InvalidFileError``
+        when it cannot read the file, ``RateLimitError``/``AuthenticationError`` as usual.
         """
         ...

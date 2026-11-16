@@ -10,6 +10,7 @@ from fitbatch.core.activity_types import describe
 from fitbatch.core.models import Activity, Capability, DownloadedFile, ExportFormat
 
 FailureHook = Callable[[Activity, ExportFormat], None]
+UploadHook = Callable[[str, bytes], None]
 
 
 class FakeAdapter:
@@ -26,13 +27,16 @@ class FakeAdapter:
         remote_formats: Iterable[ExportFormat] = tuple(ExportFormat),
         account: str = "fake-account",
         fail_with: FailureHook | None = None,
+        upload_fail_with: UploadHook | None = None,
     ) -> None:
         self._activities = list(activities)
         self._capabilities = frozenset(capabilities)
         self._remote_formats = frozenset(remote_formats)
         self._account = account
         self._fail_with = fail_with
+        self._upload_fail_with = upload_fail_with
         self.download_calls: list[tuple[str, ExportFormat]] = []
+        self.uploads: list[tuple[str, bytes]] = []
         self.list_calls: list[list[str] | None] = []
 
     @property
@@ -74,3 +78,11 @@ class FakeAdapter:
         if self._fail_with is not None:
             self._fail_with(activity, fmt)
         return [DownloadedFile(f".{fmt.value}", f"{activity.activity_id}:{fmt.value}".encode())]
+
+    def upload(self, file_name: str, data: bytes) -> None:
+        """Records the upload; ``upload_fail_with`` can raise (duplicate, rate limit, ...)."""
+        if Capability.UPLOAD not in self._capabilities:
+            raise AdapterError("Upload is not supported")
+        if self._upload_fail_with is not None:
+            self._upload_fail_with(file_name, data)
+        self.uploads.append((file_name, data))

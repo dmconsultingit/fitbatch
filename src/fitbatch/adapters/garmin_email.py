@@ -13,20 +13,24 @@ from __future__ import annotations
 import io
 import logging
 import os
+import tempfile
 import zipfile
 from collections.abc import Callable, Iterator, Sequence
 from contextlib import contextmanager
 from datetime import UTC, datetime, timedelta
-from pathlib import PurePosixPath
+from pathlib import Path, PurePosixPath
 from typing import Any
 
 from fitbatch.adapters.base import (
     AdapterError,
     AuthenticationError,
+    DuplicateError,
+    InvalidFileError,
     NoFileError,
     RateLimitError,
 )
 from fitbatch.core.models import Activity, Capability, DownloadedFile, ExportFormat
+from fitbatch.storage.files import safe_filename
 from fitbatch.storage.secrets import SecretStore
 
 PLATFORM_ID = "garmin"
@@ -162,7 +166,7 @@ class GarminEmailAdapter:
 
     @property
     def capabilities(self) -> frozenset[Capability]:
-        return frozenset({Capability.LIST_ACTIVITIES, Capability.DOWNLOAD})
+        return frozenset({Capability.LIST_ACTIVITIES, Capability.DOWNLOAD, Capability.UPLOAD})
 
     @property
     def remote_formats(self) -> frozenset[ExportFormat]:
@@ -271,6 +275,65 @@ class GarminEmailAdapter:
             return unpack_original(data)
         _check_content(fmt, data)
         return [DownloadedFile(f".{fmt.value}", data)]
+
+    # --- uploading (F18) ------------------------------------------------------------------------
+
+    def upload(self, file_name: str, data: bytes) -> None:
+        """Upload one FIT/GPX/TCX file as an import.
+
+        Garmin's import endpoint marks the activity as imported, so Garmin does not pass it on to
+        connected apps (e.g. Strava): importing a history that came from there makes no copies.
+        The library needs a path, so the data goes through a private temporary file.
+        """
+        suffix = PurePosixPath(file_name).suffix.lower()
+        if suffix not in (".fit", ".gpx", ".tcx"):
+            raise InvalidFileError(f"Unsupported file type: {suffix or 'none'}")
+        stem = safe_filename(PurePosixPath(file_name).stem) or "activity"
+        with tempfile.TemporaryDirectory(prefix="fitbatch-upload-") as tmp:
+            path = Path(tmp) / f"{stem}{suffix}"
+            path.write_bytes(data)
+            try:
+                self._client.import_activity(str(path))
+            except Exception as exc:  # the library raises several unrelated types
+                raise _upload_error(exc) from exc
+        self.persist_session()
+
+
+def _status_code(exc: BaseException) -> int | None:
+    """HTTP status from the exception or anything it was raised from."""
+    current: BaseException | None = exc
+    for _ in range(6):
+        if current is None:
+            break
+        status = getattr(getattr(current, "response", None), "status_code", None)
+        if isinstance(status, int):
+            return status
+        current = current.__cause__ or current.__context__
+    return None
+
+
+def _upload_error(exc: Exception) -> AdapterError:
+    """Map a library error from an upload to an adapter error with a safe message."""
+    from garminconnect import (
+        GarminConnectAuthenticationError,
+        GarminConnectInvalidFileFormatError,
+        GarminConnectTooManyRequestsError,
+    )
+
+    status = _status_code(exc)
+    if isinstance(exc, GarminConnectTooManyRequestsError) or status == 429:
+        log.warning("Upload: rate limited by Garmin")
+        return RateLimitError("Garmin is limiting requests (429)")
+    if isinstance(exc, GarminConnectAuthenticationError) or status == 401:
+        log.warning("Upload: authentication rejected")
+        return AuthenticationError("Garmin rejected the login or the session expired")
+    if status == 409 or "duplicate" in str(exc).lower():
+        return DuplicateError("Garmin already has this activity")
+    if isinstance(exc, GarminConnectInvalidFileFormatError) or status in (400, 413, 415, 422):
+        log.info("Upload: file rejected by Garmin (status %s)", status)
+        return InvalidFileError("Garmin could not read this file")
+    log.warning("Upload failed (status %s): %s", status, type(exc).__name__)
+    return AdapterError("Upload failed: connection problem with Garmin Connect")
 
 
 _SIGNATURES = {

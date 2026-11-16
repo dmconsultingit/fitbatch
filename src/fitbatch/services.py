@@ -20,6 +20,7 @@ from fitbatch.core.activity_types import ActivityCatalog, use_catalog
 from fitbatch.core.login_guard import LoginGuard
 from fitbatch.core.registry import DownloadRegistry
 from fitbatch.core.settings import Settings
+from fitbatch.core.upload import UploadRegistry
 from fitbatch.storage.files import atomic_write
 from fitbatch.storage.paths import AppPaths, default_paths
 from fitbatch.storage.secrets import SecretStore, default_secret_store
@@ -42,6 +43,10 @@ class AppServices:
 
     def open_registry(self) -> DownloadRegistry:
         return DownloadRegistry(self.paths.registry_file)
+
+    def open_upload_registry(self) -> UploadRegistry:
+        """Uploaded files per account (F18); same database file as the download registry."""
+        return UploadRegistry(self.paths.registry_file)
 
     def connect_saved_garmin_email(self) -> GarminEmailAdapter | None:
         """Reconnect with the saved session; ``None`` if the user has to log in again."""

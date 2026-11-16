@@ -11,7 +11,7 @@
 
 FitBatch is a free, open-source, portable desktop app for amateur athletes, coaches and anyone who wants their raw training files on their own disk: for Excel, Python, GoldenCheetah or AI tools.
 
-> **Status:** first test version (0.1.0 beta 1). Bulk download from Garmin Connect works; upload is planned.
+> **Status:** test version. Bulk download from Garmin Connect works; upload of activity files is new in the next version.
 
 ## Features
 
@@ -19,7 +19,8 @@ FitBatch is a free, open-source, portable desktop app for amateur athletes, coac
 - Already downloaded files are skipped, so you can run it again to fetch only new activities
 - Portable: no installation, one file for Windows and an app for macOS (Apple Silicon and Intel)
 - Graphical interface, plus a command-line mode for technical users
-- Planned: upload of workouts and training plans back to Garmin Connect
+- Upload of FIT, GPX and TCX files to Garmin Connect, one by one or a whole folder (also `.gz` files from a Strava export). Files go in as imports, so Garmin does not pass them on to Strava; activities already in the account are skipped
+- Planned: upload of workouts and training plans to Garmin Connect
 
 ## Download
 

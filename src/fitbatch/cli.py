@@ -49,6 +49,14 @@ def build_parser() -> argparse.ArgumentParser:
     export.add_argument("--overwrite", action="store_true", help="download again and overwrite")
     export.add_argument("--delay", type=float, default=1.0, help="seconds between downloads")
     export.add_argument("--list-only", action="store_true", help="only list, do not download")
+
+    upload = sub.add_parser("upload", help="upload FIT, GPX or TCX files to Garmin Connect")
+    upload.add_argument("paths", nargs="+", type=Path, metavar="PATH",
+                        help="files or folders (.fit, .gpx, .tcx, also .gz)")  # fmt: skip
+    upload.add_argument("--no-subfolders", action="store_true",
+                        help="in folders, ignore subfolders")  # fmt: skip
+    upload.add_argument("--delay", type=float, default=2.0, help="seconds between uploads")
+    upload.add_argument("--list-only", action="store_true", help="only check, do not upload")
     return parser
 
 
@@ -181,6 +189,74 @@ def _export(args: argparse.Namespace) -> int:
     return 0 if summary.failed == 0 else 2
 
 
+def _upload(args: argparse.Namespace) -> int:
+    from fitbatch.core.export import Waiting
+    from fitbatch.core.upload import (
+        Uploaded,
+        Uploader,
+        UploadEvent,
+        UploadFailed,
+        UploadProgress,
+        UploadSkipped,
+        scan_upload_paths,
+    )
+
+    missing = [str(p) for p in args.paths if not p.exists()]
+    if missing:
+        print(f"Not found: {', '.join(missing)}")
+        return 1
+    files = scan_upload_paths(args.paths, recursive=not args.no_subfolders)
+    problems = [f for f in files if f.problem]
+    print(f"{len(files)} files found, {len(problems)} cannot be uploaded.")
+    for f in problems:
+        print(f"    {f.path}: {f.problem.replace('_', ' ')}")
+
+    services = _services()
+    adapter = services.connect_saved_garmin_email()
+    if adapter is None:
+        print("Not logged in (or the session expired). Run: fitbatch login")
+        return 1
+
+    def show(event: UploadEvent | Waiting) -> None:
+        match event:
+            case UploadProgress(done, total, f):
+                print(f"[{done}/{total}] {f.path}")
+            case Uploaded():
+                print("    uploaded")
+            case UploadSkipped(_, reason):
+                print(f"    skipped ({reason.replace('_', ' ')})")
+            case UploadFailed(_, message):
+                print(f"    ERROR {message}")
+            case Waiting(seconds, _):
+                print(f"    Garmin is limiting requests, waiting {int(seconds)} s ...")
+
+    with services.open_upload_registry() as registry:
+        uploader = Uploader(adapter, registry, on_event=show, delay_s=args.delay)
+        pending = uploader.pending(files)
+        print(f"{len(pending)} new files to upload to {adapter.account_label}.")
+        if args.list_only or not pending:
+            return 0
+        try:
+            summary = uploader.run(files)
+        except KeyboardInterrupt:
+            print("\nCancelled. Run the same command again to continue.")
+            return 130
+        finally:
+            adapter.persist_session()
+
+    print(
+        f"\nDone: uploaded {summary.uploaded}, already in Garmin Connect {summary.duplicates},"
+        f" skipped {summary.skipped}, errors {summary.failed}."
+    )
+    if summary.paused_reason == "rate_limit":
+        print("Paused: Garmin is limiting requests. Wait 15+ minutes and run the same command.")
+        return 3
+    if summary.paused_reason == "authentication":
+        print("Paused: the session is no longer valid. Run: fitbatch login")
+        return 3
+    return 0 if summary.failed == 0 else 2
+
+
 def main(argv: Sequence[str] | None = None) -> int:
     args = build_parser().parse_args(argv)
 
@@ -193,6 +269,8 @@ def main(argv: Sequence[str] | None = None) -> int:
             return _logout()
         case "export":
             return _export(args)
+        case "upload":
+            return _upload(args)
 
     # Default: graphical interface. Imported lazily so other commands start without loading Flet.
     from fitbatch.ui.app import main as gui_main
