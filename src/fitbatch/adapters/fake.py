@@ -2,15 +2,17 @@
 
 from __future__ import annotations
 
+import json
 from collections.abc import Callable, Iterable, Sequence
 from datetime import datetime
 
-from fitbatch.adapters.base import AdapterError
+from fitbatch.adapters.base import AdapterError, NoFileError
 from fitbatch.core.activity_types import describe
-from fitbatch.core.models import Activity, Capability, DownloadedFile, ExportFormat
+from fitbatch.core.models import Activity, Capability, DownloadedFile, ExportFormat, Workout
 
 FailureHook = Callable[[Activity, ExportFormat], None]
 UploadHook = Callable[[str, bytes], None]
+WorkoutHook = Callable[[str, Workout], None]  # (step, workout); step: definition|file|delete
 
 
 class FakeAdapter:
@@ -28,6 +30,9 @@ class FakeAdapter:
         account: str = "fake-account",
         fail_with: FailureHook | None = None,
         upload_fail_with: UploadHook | None = None,
+        workouts: Iterable[Workout] = (),
+        workout_fail_with: WorkoutHook | None = None,
+        workouts_without_fit: Iterable[str] = (),
     ) -> None:
         self._activities = list(activities)
         self._capabilities = frozenset(capabilities)
@@ -35,6 +40,10 @@ class FakeAdapter:
         self._account = account
         self._fail_with = fail_with
         self._upload_fail_with = upload_fail_with
+        self.workouts = list(workouts)
+        self._workout_fail_with = workout_fail_with
+        self._no_fit = set(workouts_without_fit)
+        self.deleted_workouts: list[str] = []
         self.download_calls: list[tuple[str, ExportFormat]] = []
         self.uploads: list[tuple[str, bytes]] = []
         self.list_calls: list[list[str] | None] = []
@@ -86,3 +95,32 @@ class FakeAdapter:
         if self._upload_fail_with is not None:
             self._upload_fail_with(file_name, data)
         self.uploads.append((file_name, data))
+
+    # --- workout library ----------------------------------------------------------------------
+
+    def _workout_step(self, step: str, workout: Workout) -> None:
+        if Capability.WORKOUTS not in self._capabilities:
+            raise AdapterError("Workouts are not supported")
+        if self._workout_fail_with is not None:
+            self._workout_fail_with(step, workout)
+
+    def list_workouts(self) -> Sequence[Workout]:
+        if Capability.WORKOUTS not in self._capabilities:
+            raise AdapterError("Workouts are not supported")
+        return list(self.workouts)
+
+    def workout_definition(self, workout: Workout) -> bytes:
+        self._workout_step("definition", workout)
+        return json.dumps({"workoutId": workout.workout_id, "workoutName": workout.name}).encode()
+
+    def workout_file(self, workout: Workout) -> bytes:
+        self._workout_step("file", workout)
+        if workout.workout_id in self._no_fit:
+            raise NoFileError("No FIT for this workout")
+        header = bytes([14, 16, 0, 0, 0, 0, 0, 0]) + b".FIT" + bytes(2)
+        return header + workout.workout_id.encode()
+
+    def delete_workout(self, workout: Workout) -> None:
+        self._workout_step("delete", workout)
+        self.workouts = [w for w in self.workouts if w.workout_id != workout.workout_id]
+        self.deleted_workouts.append(workout.workout_id)

@@ -61,3 +61,18 @@ class DownloadedFile:
     extension: str  # with leading dot, e.g. ".fit"
     data: bytes
     is_substitute: bool = False  # True when the platform had no file in the requested format
+
+
+@dataclass(frozen=True, slots=True)
+class Workout:
+    """One planned workout from the platform's workout library (not a recorded activity)."""
+
+    platform: str
+    account: str
+    workout_id: str
+    name: str
+    sport_key: str  # e.g. "running", "cycling", "strength_training"
+    created: datetime | None = None
+    updated: datetime | None = None
+    duration_s: float | None = None
+    distance_m: float | None = None

@@ -85,7 +85,9 @@ def app(tmp_path: Path) -> FitBatchApp:
     return application
 
 
-@pytest.mark.parametrize("screen", ["connect", "export", "files", "import", "accounts", "settings"])
+@pytest.mark.parametrize(
+    "screen", ["connect", "export", "files", "import", "cleanup", "accounts", "settings"]
+)
 def test_screens_have_no_layout_errors(app: FitBatchApp, screen: str) -> None:
     app.go(screen)
     assert _problems(app.page.controls[0]) == []
@@ -132,6 +134,47 @@ def test_import_tabs(app: FitBatchApp) -> None:
     app.import_screen.tab = "activities"
 
 
+def test_cleanup_tabs(app: FitBatchApp) -> None:
+    app.go("cleanup")
+    for tab in ("activities", "workouts"):
+        app.cleanup_screen.tab = tab
+        app.render()
+        assert _problems(app.page.controls[0]) == []
+    app.cleanup_screen.tab = "activities"
+
+
+def test_cleanup_workouts_flow(app: FitBatchApp, tmp_path: Path) -> None:
+    """List, select, back up and delete through the screen (fake page runs threads inline)."""
+    from fitbatch.core.models import Capability, Workout
+
+    now = datetime.now(UTC)
+    workouts = [
+        Workout("fake", "acc", f"w{i}", f"VO2max week {i}", "cycling", now, now) for i in range(3)
+    ]
+    app.adapter = _Adapter(
+        capabilities=(Capability.LIST_ACTIVITIES, Capability.WORKOUTS), workouts=workouts
+    )
+    screen = app.cleanup_screen
+    screen.tab = "workouts"
+    screen.delay_s = 0
+    app.go("cleanup")  # loads the list
+    assert len(screen.workouts) == 3
+    assert _problems(app.page.controls[0]) == []
+    screen.selected = {"w0", "w2"}
+    app.page.show_dialog = lambda _dialog: None
+    screen._confirm()  # dialog only; nothing deleted yet
+    assert app.adapter.deleted_workouts == []
+    screen._start(screen._chosen())
+    assert app.adapter.deleted_workouts == ["w0", "w2"]
+    assert [w.workout_id for w in screen.workouts] == ["w1"]
+    backups = sorted(
+        p.suffix for p in (tmp_path / "out" / "Fake" / "backup" / "workouts").iterdir()
+    )
+    assert backups == [".fit", ".fit", ".json", ".json"]
+    assert screen.job.deleted == 2 and screen.job.backed_up == 2
+    assert _problems(app.page.controls[0]) == []
+
+
 def test_scrolling_columns_have_no_expand_children(app: FitBatchApp) -> None:
     """Flutter cannot size an expand child inside a scrolling column (grey box)."""
 
@@ -144,7 +187,7 @@ def test_scrolling_columns_have_no_expand_children(app: FitBatchApp) -> None:
             issues += walk(child)
         return issues
 
-    for screen in ("connect", "export", "files", "import", "accounts", "settings"):
+    for screen in ("connect", "export", "files", "import", "cleanup", "accounts", "settings"):
         app.go(screen)
         assert walk(app.page.controls[0]) == [], screen
 

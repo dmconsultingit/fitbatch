@@ -6,7 +6,7 @@ from collections.abc import Sequence
 from datetime import datetime
 from typing import Protocol, runtime_checkable
 
-from fitbatch.core.models import Activity, Capability, DownloadedFile, ExportFormat
+from fitbatch.core.models import Activity, Capability, DownloadedFile, ExportFormat, Workout
 
 
 class AdapterError(Exception):
@@ -96,4 +96,31 @@ class UploadAdapter(Protocol):
         Raises ``DuplicateError`` when the platform already has the activity, ``InvalidFileError``
         when it cannot read the file, ``RateLimitError``/``AuthenticationError`` as usual.
         """
+        ...
+
+
+@runtime_checkable
+class WorkoutAdapter(Protocol):
+    """An adapter that manages the workout library (``Capability.WORKOUTS``)."""
+
+    @property
+    def platform_id(self) -> str: ...
+
+    @property
+    def account(self) -> str: ...
+
+    def list_workouts(self) -> Sequence[Workout]:
+        """Every workout in the account's library, newest change first."""
+        ...
+
+    def workout_definition(self, workout: Workout) -> bytes:
+        """The full workout as JSON: enough to create it again on the platform."""
+        ...
+
+    def workout_file(self, workout: Workout) -> bytes:
+        """The workout as a FIT file. Raises ``NoFileError`` if the platform has none."""
+        ...
+
+    def delete_workout(self, workout: Workout) -> None:
+        """Delete the workout from the library. Cannot be undone on the platform."""
         ...

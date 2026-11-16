@@ -137,6 +137,27 @@ class Kit:
             ),
         )
 
+    def danger(self, label: str, on_click: Handler | None, icon: Any = None) -> ft.FilledButton:
+        """Filled red button for actions that cannot be undone (always confirmed first)."""
+        return ft.FilledButton(
+            content=ft.Text(label, font_family=BODY_SEMIBOLD, size=15),
+            icon=icon,
+            on_click=on_click,
+            height=44,
+            style=ft.ButtonStyle(
+                bgcolor={
+                    ft.ControlState.DEFAULT: self.p.danger,
+                    ft.ControlState.DISABLED: self.p.surface2,
+                },
+                color={
+                    ft.ControlState.DEFAULT: self.p.on_primary,
+                    ft.ControlState.DISABLED: self.p.muted,
+                },
+                shape=_shape(10),
+                padding=ft.Padding.symmetric(vertical=0, horizontal=20),
+            ),
+        )
+
     def secondary(
         self, label: str, on_click: Handler | None, icon: Any = None, *, danger: bool = False
     ) -> ft.OutlinedButton:

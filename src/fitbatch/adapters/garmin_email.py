@@ -11,6 +11,7 @@ Security (N2):
 from __future__ import annotations
 
 import io
+import json
 import logging
 import os
 import tempfile
@@ -29,7 +30,7 @@ from fitbatch.adapters.base import (
     NoFileError,
     RateLimitError,
 )
-from fitbatch.core.models import Activity, Capability, DownloadedFile, ExportFormat
+from fitbatch.core.models import Activity, Capability, DownloadedFile, ExportFormat, Workout
 from fitbatch.storage.files import safe_filename
 from fitbatch.storage.secrets import SecretStore
 
@@ -166,7 +167,14 @@ class GarminEmailAdapter:
 
     @property
     def capabilities(self) -> frozenset[Capability]:
-        return frozenset({Capability.LIST_ACTIVITIES, Capability.DOWNLOAD, Capability.UPLOAD})
+        return frozenset(
+            {
+                Capability.LIST_ACTIVITIES,
+                Capability.DOWNLOAD,
+                Capability.UPLOAD,
+                Capability.WORKOUTS,
+            }
+        )
 
     @property
     def remote_formats(self) -> frozenset[ExportFormat]:
@@ -298,6 +306,66 @@ class GarminEmailAdapter:
                 raise _upload_error(exc) from exc
         self.persist_session()
 
+    # --- workout library ------------------------------------------------------------------------
+
+    WORKOUT_PAGE = 100
+
+    def list_workouts(self) -> Sequence[Workout]:
+        """Every workout in the library (paged by 100), newest change first."""
+        raw: list[dict[str, Any]] = []
+        start = 0
+        while True:
+            with _translate_errors("Workout list"):
+                page = self._client.get_workouts(start, self.WORKOUT_PAGE) or []
+            raw.extend(r for r in page if isinstance(r, dict))
+            if len(page) < self.WORKOUT_PAGE or start > 20_000:
+                break
+            start += self.WORKOUT_PAGE
+        self.persist_session()
+        unique = {str(r["workoutId"]): r for r in raw if r.get("workoutId") is not None}
+        workouts = [self._to_workout(r) for r in unique.values()]
+        return sorted(
+            workouts,
+            key=lambda w: w.updated or w.created or datetime.min.replace(tzinfo=UTC),
+            reverse=True,
+        )
+
+    def _to_workout(self, raw: dict[str, Any]) -> Workout:
+        return Workout(
+            platform=PLATFORM_ID,
+            account=self._account,
+            workout_id=str(raw["workoutId"]),
+            name=raw.get("workoutName") or "",
+            sport_key=(raw.get("sportType") or {}).get("sportTypeKey") or "other",
+            created=_parse_local(raw.get("createdDate")),
+            updated=_parse_local(raw.get("updatedDate")),
+            duration_s=raw.get("estimatedDurationInSecs"),
+            distance_m=raw.get("estimatedDistanceInMeters"),
+        )
+
+    def workout_definition(self, workout: Workout) -> bytes:
+        with _translate_errors("Workout backup"):
+            data = self._client.get_workout_by_id(workout.workout_id)
+        self.persist_session()
+        if not isinstance(data, dict) or not data:
+            raise AdapterError("Unexpected workout data from Garmin")
+        return json.dumps(data, indent=2, ensure_ascii=False).encode("utf-8")
+
+    def workout_file(self, workout: Workout) -> bytes:
+        with _translate_errors("Workout FIT"):
+            data = self._client.download_workout(workout.workout_id)
+        self.persist_session()
+        if not data or not _is_fit(data):
+            raise NoFileError("Garmin has no FIT file for this workout")
+        return data
+
+    def delete_workout(self, workout: Workout) -> None:
+        try:
+            self._client.delete_workout(workout.workout_id)
+        except Exception as exc:  # the library raises several unrelated types here
+            raise _request_error(exc, "Delete workout") from exc
+        self.persist_session()
+
 
 def _status_code(exc: BaseException) -> int | None:
     """HTTP status from the exception or anything it was raised from."""
@@ -334,6 +402,23 @@ def _upload_error(exc: Exception) -> AdapterError:
         return InvalidFileError("Garmin could not read this file")
     log.warning("Upload failed (status %s): %s", status, type(exc).__name__)
     return AdapterError("Upload failed: connection problem with Garmin Connect")
+
+
+def _request_error(exc: Exception, action: str) -> AdapterError:
+    """Map a library error from a write request (not translated by the library) safely."""
+    from garminconnect import GarminConnectAuthenticationError, GarminConnectTooManyRequestsError
+
+    status = _status_code(exc)
+    if isinstance(exc, GarminConnectTooManyRequestsError) or status == 429:
+        log.warning("%s: rate limited by Garmin", action)
+        return RateLimitError("Garmin is limiting requests (429)")
+    if isinstance(exc, GarminConnectAuthenticationError) or status == 401:
+        log.warning("%s: authentication rejected", action)
+        return AuthenticationError("Garmin rejected the login or the session expired")
+    if status == 404:
+        return NoFileError("Garmin Connect has no such item (already deleted?)")
+    log.warning("%s failed (status %s): %s", action, status, type(exc).__name__)
+    return AdapterError(f"{action} failed: connection problem with Garmin Connect")
 
 
 _SIGNATURES = {

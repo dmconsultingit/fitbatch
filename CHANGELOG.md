@@ -6,6 +6,7 @@
 - Files are checked before sending; activities already in Garmin Connect and files uploaded before are skipped, so running the same import again sends nothing twice.
 - Imported activities are not passed on by Garmin to Strava or other connected apps.
 - Command line: `fitbatch upload <files or folders>`.
+- Clean up, Workouts: list your Garmin Connect workouts, select them and delete them in one go. Each workout is first saved on your computer (JSON and FIT) in `Garmin/backup/workouts`; if the backup fails, the workout is not deleted.
 
 ## 0.1.0 beta 1 (2026-11-16)
 
